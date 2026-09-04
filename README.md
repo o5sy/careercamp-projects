@@ -1,0 +1,17 @@
+# careercamp-projects
+
+커리어캠프 수강 중 만든 바이브코딩 프로젝트 모음입니다.
+
+## 프로젝트
+
+- [`hyanghae/`](./hyanghae) — Vite 기반 바닐라 JS 프로젝트
+- [`kok-jibeo/`](./kok-jibeo) — AI 질문 훈련 게임 (React + Vite + Tailwind CSS)
+- [`ni-chaek-im/`](./ni-chaek-im) — React + Vite 프로젝트
+
+각 폴더는 독립된 프로젝트입니다. 실행하려면 해당 폴더로 이동해 설치 후 개발 서버를 실행하세요.
+
+```bash
+cd <project-folder>
+npm install
+npm run dev
+```

@@ -1,0 +1,176 @@
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------------
+   디자인가이드_최종.md 2번 컬러 팔레트
+   - 다크 테마 없음 (밝게)
+   - 오답에 빨간색 사용 금지 → 앰버 톤
+   - 텍스트로 쓰는 색은 WCAG AA(4.5:1)를 만족하는 진한 변형(-ink)을 따로 둔다
+   ------------------------------------------------------------------ */
+@theme {
+  --font-sans:
+    'Pretendard Variable', Pretendard, 'Noto Sans KR', -apple-system,
+    BlinkMacSystemFont, system-ui, 'Malgun Gothic', sans-serif;
+
+  /* 배경 · 텍스트 */
+  --color-canvas: #fffbf5; /* 웜 오프화이트 */
+  --color-card: #ffffff; /* 순백 */
+  --color-ink: #33302b; /* 본문 차콜 */
+  --color-ink-soft: #6b6660; /* 보조 웜 그레이 */
+  --color-line: #e7e0d6; /* 카드 경계선 */
+
+  /* 포인트 컬러 (테라코타) */
+  --color-point: #d97a4d; /* 가이드 기준값 — 테두리 · 강조 */
+  --color-point-strong: #b85c2e; /* 채운 CTA 배경 (흰 글씨와 AA 확보) */
+  --color-point-ink: #9e4c20; /* 밝은 배경 위 텍스트용 */
+  --color-point-tint: #fcebe0; /* After 카드 배경 */
+
+  /* 정답 (세이지 그린) */
+  --color-correct: #5c8b5c;
+  --color-correct-ink: #3e6b3e;
+  --color-correct-tint: #edf4ed;
+
+  /* 재도전 유도 (부드러운 앰버 — 빨강 금지) */
+  --color-retry: #e0a94c;
+  --color-retry-ink: #8a6220;
+  --color-retry-tint: #fbf3e4;
+
+  /* Before 카드 (뉴트럴 그레이) */
+  --color-before: #f1eee9;
+}
+
+/* 요소 기본값은 반드시 base 레이어에 둔다.
+   레이어 밖 규칙은 Tailwind 유틸리티(text-white, font-semibold 등)를
+   레이어 우선순위로 이겨버리기 때문에 버튼 글자색이 덮여쓰인다. */
+@layer base {
+  /* 글씨 크게 모드: 루트 폰트 크기만 바꿔 rem 기반 전체 UI가 함께 커진다 */
+  html {
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+  html[data-fontscale='large'] {
+    font-size: 128%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 1.125rem; /* 본문 18px (글씨 크게: 약 23px) */
+    line-height: 1.7; /* 줄간격 1.6 이상 */
+    -webkit-font-smoothing: antialiased;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+  }
+
+  /* 키보드 포커스 링 — 색상 대비 확보 */
+  :where(button, a, [tabindex]):focus-visible {
+    outline: 3px solid var(--color-point-strong);
+    outline-offset: 3px;
+    border-radius: 0.5rem;
+  }
+}
+
+/* ------------------------------------------------------------------
+   마크다운 표 렌더링
+   넓은 화면: 일반 표 / 좁은 화면(768px 미만): 세로 카드로 전환해
+   360~400px에서도 가로 스크롤 없이 읽을 수 있게 한다.
+   표 내부 텍스트도 최소 16px 이상 유지.
+   ------------------------------------------------------------------ */
+.kj-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1rem;
+  text-align: left;
+}
+.kj-table th,
+.kj-table td {
+  padding: 0.75rem;
+  border: 1px solid var(--color-line);
+  vertical-align: top;
+}
+.kj-table thead th {
+  background-color: var(--color-canvas);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (max-width: 47.99rem) {
+  /* 헤더는 화면에서 숨기고 각 셀 위에 항목명을 붙인다 */
+  .kj-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .kj-table,
+  .kj-table tbody,
+  .kj-table tr,
+  .kj-table td {
+    display: block;
+    width: 100%;
+  }
+  .kj-table tr {
+    margin-bottom: 0.75rem;
+    padding: 0.25rem 0.875rem;
+    border: 1px solid var(--color-line);
+    border-radius: 0.75rem;
+    background-color: var(--color-card);
+  }
+  .kj-table tr:last-child {
+    margin-bottom: 0;
+  }
+  .kj-table td {
+    padding: 0.5rem 0;
+    border: 0;
+    border-bottom: 1px solid var(--color-line);
+  }
+  .kj-table tr td:last-child {
+    border-bottom: 0;
+  }
+  .kj-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.125rem;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--color-ink-soft);
+  }
+}
+
+/* 애니메이션은 0.3초 이내로 짧고 담백하게 */
+@keyframes kj-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.kj-fade-in {
+  animation: kj-fade-in-up 0.3s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,19 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  min-height: 100vh;
+}
+
+body {
+  font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', -apple-system, sans-serif;
+  background: #26262b;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+button {
+  font-family: inherit;
+}
