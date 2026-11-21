@@ -1,0 +1,25 @@
+{
+  "name": "thanks-classroom",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "AI Native 캠프 3D 강의실 롤링페이퍼",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "vite build && wrangler pages deploy dist --project-name thanks-classroom --branch main"
+  },
+  "dependencies": {
+    "@react-three/drei": "9.115.0",
+    "@react-three/fiber": "8.17.10",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "three": "0.169.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "4.3.4",
+    "vite": "5.4.11",
+    "wrangler": "3.90.0"
+  }
+}
