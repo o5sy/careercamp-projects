@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>우리는 우리가 넣은 대로 된다</title>
+<style>
+:root{
+  --ink:#1b1b1f; --paper:#f4f1ea; --line:#d8d2c4; --dim:#7d776b;
+  --biz:#3f7d6a; --sec:#a8553f; --warn:#b4452f; --ok:#3f7d6a;
+  --shell:#e8e4da; --white:#fffdf8;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  font-size:15px; line-height:1.7; -webkit-font-smoothing:antialiased;
+}
+button{font:inherit; color:inherit; cursor:pointer}
+.screen{display:none; min-height:100vh}
+.screen.on{display:block}
+.wrap{max-width:1080px; margin:0 auto; padding:32px 24px 64px}
+.center{max-width:640px; margin:0 auto; padding:96px 24px; text-align:center}
+h1{font-size:30px; letter-spacing:-.02em; margin:0 0 6px}
+h2{font-size:20px; margin:0 0 10px}
+.sub{color:var(--dim); margin:0 0 28px}
+.btn{
+  background:var(--ink); color:var(--paper); border:0; border-radius:2px;
+  padding:11px 22px; letter-spacing:.02em; transition:opacity .15s;
+}
+.btn:hover{opacity:.82}
+.btn.ghost{background:transparent; color:var(--ink); border:1px solid var(--ink)}
+.btn.sm{padding:7px 13px; font-size:13px}
+.btn:disabled{opacity:.35; cursor:not-allowed}
+.plan{position:fixed; top:14px; right:18px; font-size:12px; color:var(--dim); z-index:40}
+
+.topbar{
+  display:flex; align-items:center; gap:22px; padding:12px 22px;
+  background:var(--shell); border-bottom:1px solid var(--line);
+  position:sticky; top:0; z-index:20;
+}
+.dots{display:flex; gap:7px; align-items:center}
+.dot{width:11px; height:11px; border-radius:50%; border:1.5px solid var(--ink); opacity:.35}
+.dot.done{background:var(--ink); opacity:1}
+.dot.now{opacity:1; box-shadow:0 0 0 3px rgba(27,27,31,.12)}
+.gauges{margin-left:auto; display:flex; gap:18px}
+.gauge{display:flex; align-items:center; gap:8px; font-size:12.5px}
+.bar{width:112px; height:9px; background:#fff; border:1px solid var(--line); border-radius:2px; overflow:hidden}
+.bar i{display:block; height:100%; width:0; transition:width .5s ease}
+.bar.biz i{background:var(--biz)}
+.bar.sec i{background:var(--sec)}
+.gauge b{font-variant-numeric:tabular-nums; width:26px; text-align:right}
+
+.stage{display:grid; grid-template-columns:1fr 1fr; min-height:calc(100vh - 47px)}
+.office{padding:26px 28px; border-right:1px solid var(--line)}
+.aiside{padding:26px 28px; background:var(--white)}
+.eyebrow{font-size:11.5px; letter-spacing:.14em; color:var(--dim); margin-bottom:10px}
+.request{display:flex; gap:12px; align-items:flex-start; margin-bottom:16px}
+.who{flex:0 0 auto; width:34px; height:34px; border-radius:50%; border:1.5px solid var(--ink); position:relative}
+.who.sq{border-radius:3px}
+.who::after{content:""; position:absolute; left:9px; top:13px; width:16px; height:1.5px; background:var(--ink); opacity:.55}
+.bubble{background:var(--shell); border:1px solid var(--line); border-radius:3px; padding:10px 13px; font-size:14.5px}
+.doc{
+  background:var(--white); border:1px solid var(--line); border-left:3px solid var(--ink);
+  padding:14px 16px; white-space:pre-wrap; font-size:14px; line-height:2.05;
+  max-height:330px; overflow:auto;
+}
+.tok{border-radius:2px; padding:1px 2px; transition:background .12s}
+.tok.risk{cursor:pointer}
+.tok.risk:hover{background:#e4ded0}
+.tok.hit{background:var(--ink); color:var(--paper)}
+.hint{font-size:12.5px; color:var(--dim); margin:10px 0 0}
+.tools{margin-top:16px; border-top:1px solid var(--line); padding-top:14px}
+.toolrow{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:9px}
+.toolrow .lbl{font-size:11.5px; color:var(--dim); letter-spacing:.1em; width:38px}
+.tool{background:var(--white); border:1px solid var(--ink); border-radius:2px; padding:6px 12px; font-size:13px}
+.tool.sel{background:var(--ink); color:var(--paper)}
+.tool.used{opacity:.3; cursor:not-allowed}
+.aiwin{border:1px solid var(--line); background:var(--shell); border-radius:3px; padding:14px 16px; min-height:120px}
+.aiwin .ph{color:var(--dim); font-size:13.5px}
+.memory{display:flex; flex-wrap:wrap; gap:4px; margin-top:12px; min-height:14px}
+.mem{width:7px; height:7px; border-radius:50%; background:var(--warn); opacity:.75; animation:suck .45s ease}
+@keyframes suck{from{transform:translateY(-16px) scale(2.2); opacity:0} to{transform:none; opacity:.75}}
+.answer{margin-top:16px; border:1px solid var(--line); background:var(--white); padding:14px 16px; line-height:2.05; font-size:14px}
+.badge{display:inline-block; font-size:12px; border:1px solid var(--line); border-radius:2px; padding:2px 9px; margin-bottom:9px; background:var(--shell)}
+.badge.confident{border-color:var(--warn); color:var(--warn)}
+.utok{padding:1px 1px; border-bottom:2px solid transparent}
+.utok.susp{cursor:pointer}
+.utok.susp:hover{border-bottom-color:#c9c2b2}
+.utok.ul{border-bottom:2px solid var(--warn); background:rgba(180,69,47,.07)}
+.verdict{margin-top:12px; padding:11px 13px; border-left:3px solid var(--ok); background:var(--shell); font-size:13.5px}
+.verdict.bad{border-left-color:var(--warn)}
+.actions{margin-top:18px; display:flex; gap:9px; align-items:center; flex-wrap:wrap}
+.settings{margin-top:14px; font-size:12.5px; color:var(--dim)}
+.gear{background:none; border:0; padding:2px 5px; font-size:15px; opacity:.65}
+.gear:hover{opacity:1}
+.panel{margin-top:8px; border:1px dashed var(--line); padding:10px 12px; background:var(--shell); font-size:13px; display:none}
+.panel.on{display:block}
+.sw{display:inline-flex; align-items:center; gap:8px; cursor:pointer}
+.sw i{width:34px; height:18px; border-radius:9px; background:var(--warn); position:relative; transition:background .2s}
+.sw i::after{content:""; position:absolute; top:2px; left:18px; width:14px; height:14px; border-radius:50%; background:#fff; transition:left .2s}
+.sw.off i{background:#bdb7a8}
+.sw.off i::after{left:2px}
+
+.modal{position:fixed; inset:0; background:rgba(27,27,31,.55); display:none; align-items:center; justify-content:center; z-index:60}
+.modal.on{display:flex}
+.modal .box{background:var(--paper); border:1px solid var(--ink); padding:34px 38px; max-width:430px; text-align:center}
+.modal .q{font-size:18px; margin:0 0 22px}
+.modal .row{display:flex; gap:10px; justify-content:center}
+.modal .never{margin-top:16px; font-size:12.5px; color:var(--dim)}
+
+.dark{background:#14141a; color:#e8e4da; min-height:100vh}
+.beam{max-width:620px; margin:0 auto; padding:110px 24px}
+.beam p{font-size:17px; line-height:2.1; opacity:0; animation:fade .9s forwards}
+.beam .quote{border-left:2px solid #6b6658; padding-left:16px; color:#cfc9b8; font-size:15.5px}
+.strangerwin{border:1px solid #35353f; background:#1b1b22; padding:16px 18px; margin:22px 0; font-size:14px; line-height:2}
+.leak{color:#e2705a; border-bottom:1px dashed #e2705a}
+@keyframes fade{to{opacity:1}}
+.ask{font-size:26px; letter-spacing:-.01em; margin:44px 0 26px}
+
+.quad{display:grid; grid-template-columns:120px 1fr 1fr; gap:1px; background:var(--line); border:1px solid var(--line); margin:22px 0 26px}
+.quad>div{background:var(--paper); padding:14px 16px; font-size:14px}
+.quad .hd{background:var(--shell); font-size:12.5px; color:var(--dim)}
+.quad .cell{min-height:74px; opacity:.4}
+.quad .cell.win{opacity:1; background:var(--ink); color:var(--paper)}
+.quad .cell .nm{font-size:15px; font-weight:600; display:block; margin-bottom:3px}
+.quad .cell .cm{font-size:12.5px; line-height:1.6}
+.cards{display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start}
+.safety{border:1px solid var(--ink); background:var(--white); padding:20px 22px}
+.safety h3{margin:0 0 14px; font-size:15px}
+.safety dt{font-size:12px; color:var(--dim); margin-top:13px}
+.safety dd{margin:3px 0 0; font-size:14.5px}
+.safety ul{margin:6px 0 0; padding-left:17px; font-size:13.5px}
+.jobs{display:flex; gap:6px; flex-wrap:wrap; margin:8px 0 0}
+.habits{margin-top:16px; padding-top:13px; border-top:1px solid var(--line); text-align:center; letter-spacing:.06em}
+.prompts{border:1px solid var(--line); background:var(--white); padding:20px 22px}
+.prompts pre{
+  white-space:pre-wrap; font-family:inherit; font-size:14px; line-height:2;
+  background:var(--shell); border:1px solid var(--line); padding:13px 15px; margin:0 0 13px;
+}
+.policy{margin:18px 0 0; padding:11px 14px; border-left:3px solid var(--warn); background:var(--shell); font-size:13.5px}
+.log{margin-top:26px; border-top:1px solid var(--line); padding-top:16px; font-size:13.5px}
+.log table{border-collapse:collapse; width:100%}
+.log th,.log td{text-align:left; padding:6px 10px 6px 0; border-bottom:1px solid var(--line); font-weight:400}
+.log th{font-size:12px; color:var(--dim)}
+canvas{max-width:100%; border:1px solid var(--line); display:block; margin-top:12px}
+</style>
+</head>
+<body>
+<div class="plan" id="planTag">사용 중: 무료 플랜</div>
+
+<!-- ══════════ 타이틀 ══════════ -->
+<section class="screen on" id="s-title">
+  <div class="center">
+    <h1>우리는 우리가 넣은 대로 된다</h1>
+    <p class="sub">우리가 AI를 학습시키듯, AI도 우리를 학습시킨다</p>
+    <p style="text-align:left; color:#5c574d">
+      당신은 오늘도 하루치 업무를 AI로 처리합니다.<br>
+      고객 문의를 정리하고, 회의록을 요약하고, 보도자료를 다듬습니다.<br>
+      붙여넣기만 하면 됩니다. 쉽죠.
+    </p>
+    <p style="margin-top:34px"><button class="btn" id="btnStart">출근하기</button></p>
+    <p class="hint">마우스로 플레이합니다 · 약 7분 · 저장되지 않습니다</p>
+  </div>
+</section>
+
+<!-- ══════════ 플레이 무대 (1·2회차 공용) ══════════ -->
+<section class="screen" id="s-play">
+  <div class="topbar">
+    <span class="eyebrow" id="roundTag" data-prd="prd-prologue">1회차 · 그냥 붙여넣는 하루</span>
+    <span style="font-size:12.5px; color:var(--dim)">오늘 남은 요청</span>
+    <span class="dots" id="dots">
+      <i class="dot" data-prd="prd-card-1"></i><i class="dot" data-prd="prd-card-2"></i><i class="dot" data-prd="prd-card-3"></i><i class="dot" data-prd="prd-card-4"></i><i class="dot" data-prd="prd-card-5"></i><i class="dot" data-prd="prd-card-6"></i>
+    </span>
+    <span class="gauges" id="gauges" hidden>
+      <span class="gauge" data-prd="prd-gauge-business">업무 <span class="bar biz"><i id="barBiz"></i></span><b id="numBiz">0</b></span>
+      <span class="gauge" data-prd="prd-gauge-security">보안 <span class="bar sec"><i id="barSec"></i></span><b id="numSec">100</b></span>
+    </span>
+  </div>
+
+  <div class="stage">
+    <!-- 사무실 세상 -->
+    <div class="office">
+      <p class="eyebrow">사무실</p>
+      <div class="request">
+        <span class="who" id="whoShape"></span>
+        <span class="bubble" id="situation"></span>
+      </div>
+
+      <p class="eyebrow" style="margin-top:20px">원본 문서</p>
+      <div class="doc" id="doc" data-prd="prd-word-toggle"></div>
+      <p class="hint" id="docHint" data-prd="prd-mechanism-1">위험해 보이는 항목을 클릭해 표시하세요.</p>
+
+      <div class="tools" id="toolsBox" hidden>
+        <div class="toolrow" data-prd="prd-mechanism-2">
+          <span class="lbl">도구</span>
+          <button class="tool" data-tool="익명화">익명화</button>
+          <button class="tool" data-tool="마스킹">마스킹</button>
+          <button class="tool" data-tool="요약">요약</button>
+          <button class="tool" data-tool="가상데이터">가상데이터</button>
+          <button class="btn ghost sm" id="btnUndo">되돌리기</button>
+        </div>
+        <p class="hint" id="toolHint">도구를 고른 뒤 원본의 단어를 클릭하면 그 자리에서 바뀝니다.</p>
+      </div>
+    </div>
+
+    <!-- AI 창 -->
+    <div class="aiside">
+      <p class="eyebrow">AI 창</p>
+      <div class="aiwin">
+        <div id="pasted"><span class="ph">여기에 붙여넣기</span></div>
+        <div class="memory" id="memory" title="AI 안에 쌓인 입력"></div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="btnSend">전송</button>
+        <button class="btn ghost" id="btnReject" hidden>이 요청 거절</button>
+      </div>
+
+      <div id="answerBox" hidden>
+        <div class="answer">
+          <span class="badge" id="badge" data-prd="prd-badge-confident"></span>
+          <div id="answerText" data-prd="prd-mechanism-3"></div>
+        </div>
+        <p class="hint" id="ulHint" hidden>답변에서 의심스러운 수치·출처·고유명사를 클릭해 밑줄을 그으세요.</p>
+
+        <div class="tools" id="verifyBox" hidden>
+          <div class="toolrow" data-prd="prd-mechanism-4">
+            <span class="lbl">검증</span>
+            <button class="tool" data-vtool="근거요구">근거 요구</button>
+            <button class="tool" data-vtool="원문대조">원문 대조</button>
+            <button class="tool" data-vtool="교차확인">교차 확인</button>
+            <button class="tool" data-vtool="자가검토">자가 검토</button>
+            <b id="vCount" style="font-size:12.5px; color:var(--dim)">0/2</b>
+          </div>
+          <p class="hint">검증 도구는 턴당 2개까지. 1개 쓸 때마다 업무 -3.</p>
+        </div>
+
+        <div id="verdicts"></div>
+        <div class="actions">
+          <button class="btn" id="btnSubmit">보고서에 넣기</button>
+        </div>
+      </div>
+
+      <div class="settings" id="settingsBox" hidden>
+        <button class="gear" id="btnGear" title="설정">&#9881;</button>
+        <span style="font-size:11.5px">설정</span>
+        <div class="panel" id="gearPanel" data-prd="prd-toggle-training">
+          <label class="sw" id="swTrain">
+            <i></i><span>대화 내용을 학습에 사용</span>
+          </label>
+          <p class="hint" id="swState" style="margin-top:6px">켜져 있음</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 전송 확인창 (2회차 전용) ══════════ -->
+<div class="modal" id="modalSend" data-prd="prd-modal-send">
+  <div class="box">
+    <p class="q">&ldquo;이 내용, 밖에 나가도 괜찮은 걸까?&rdquo;</p>
+    <div class="row">
+      <button class="btn" id="mdGo">그냥 보내기</button>
+      <button class="btn ghost" id="mdBack">다시 보기</button>
+    </div>
+    <label class="never" id="mdNeverWrap" hidden>
+      <input type="checkbox" id="mdNever"> 다시 묻지 않기
+    </label>
+  </div>
+</div>
+
+<!-- ══════════ 부메랑 ══════════ -->
+<section class="screen dark" id="s-boom">
+  <div class="beam" id="beam"></div>
+</section>
+
+<!-- ══════════ 다시 해보시겠습니까 ══════════ -->
+<section class="screen dark" id="s-again">
+  <div class="center">
+    <p class="ask">&ldquo;다시 해보시겠습니까?&rdquo;</p>
+    <button class="btn" id="btnAgain" style="background:#e8e4da; color:#14141a">같은 하루를 다시 살기</button>
+    <p class="hint" style="color:#7b7668; margin-top:26px">이번엔 도구가 열려 있습니다.</p>
+  </div>
+</section>
+
+<!-- ══════════ 엔딩 ══════════ -->
+<section class="screen" id="s-end">
+  <div class="wrap">
+    <h1 id="endTitle"></h1>
+    <p class="sub" id="endScore"></p>
+
+    <div class="quad">
+      <div class="hd"></div><div class="hd">보안 낮음</div><div class="hd">보안 높음</div>
+      <div class="hd" style="display:flex; align-items:center">업무 높음</div>
+      <div class="cell" id="q-leak" data-prd="prd-quadrant-2">
+        <span class="nm">유출 사고</span>
+        <span class="cm">일은 빨랐습니다. 그리고 그만큼 빠져나갔습니다. 1회차와 같은 하루였어요.</span>
+      </div>
+      <div class="cell" id="q-native" data-prd="prd-quadrant-1">
+        <span class="nm">AI 네이티브</span>
+        <span class="cm">가리고 쓰고, 의심하고 확인했습니다. 포기하지 않고 둘 다 지킨 하루입니다.</span>
+      </div>
+      <div class="hd" style="display:flex; align-items:center">업무 낮음</div>
+      <div class="cell" id="q-worst" data-prd="prd-quadrant-4">
+        <span class="nm">최악</span>
+        <span class="cm">일도 못 했고, 정보도 샜습니다. 여기서부터는 올라갈 일만 남았습니다.</span>
+      </div>
+      <div class="cell" id="q-safe" data-prd="prd-quadrant-3">
+        <span class="nm">안전한 무능</span>
+        <span class="cm">안전했지만, 아무 일도 못 했습니다. 가려서 쓰면 둘 다 가능했어요.</span>
+      </div>
+    </div>
+
+    <div id="policyNote" class="policy" data-prd="prd-note-data-policy" hidden>
+      설정에 학습 사용을 끄는 옵션이 있었습니다. 무료·유료·기업용은 정책이 다릅니다.
+    </div>
+
+    <div class="cards" style="margin-top:30px">
+      <!-- 산출물 1 -->
+      <div class="safety" data-prd="prd-safety-card">
+        <h3>내 직무 안전 카드</h3>
+        <dl style="margin:0">
+          <dt>당신이 가장 자주 놓친 것</dt>
+          <dd id="scMissed">—</dd>
+          <dt>당신의 직무에서 특히 조심할 것</dt>
+          <dd>
+            <div class="jobs" id="jobPick">
+              <button class="tool" data-job="HR">HR</button>
+              <button class="tool" data-job="PO">PO</button>
+              <button class="tool" data-job="디자인">디자인</button>
+              <button class="tool" data-job="개발">개발</button>
+            </div>
+            <ul id="scJob"><li>직무를 고르면 체크리스트가 나타납니다.</li></ul>
+          </dd>
+        </dl>
+        <div class="habits">오늘의 안전 3습관<br><b>멈추기 · 가리기 · 확인하기</b></div>
+        <div class="actions">
+          <button class="btn sm" id="btnCardImg">이미지로 저장</button>
+          <a id="dlCard" download="안전카드.png" hidden></a>
+        </div>
+        <canvas id="cardCanvas" width="720" height="900" hidden></canvas>
+      </div>
+
+      <!-- 산출물 2 -->
+      <div class="prompts" data-prd="prd-copy-prompt">
+        <h3 style="margin:0 0 14px; font-size:15px">검증 프롬프트</h3>
+        <pre id="promptText">· 답의 근거와 출처를 함께 표시해줘.
+· 확실하지 않으면 '모른다'고 말해줘.
+· 이 자료 안에서만 답하고, 없는 건 지어내지 마.
+· 방금 답에서 틀릴 수 있는 부분을 스스로 짚어줘.</pre>
+        <button class="btn" id="btnCopy">복사하기</button>
+        <span class="hint" id="copyMsg" style="margin-left:8px"></span>
+        <p class="hint" style="margin-top:16px">AI는 자신 있게 틀립니다. 그래서 마지막 확인은, 사람이.</p>
+      </div>
+    </div>
+
+    <div class="log">
+      <table>
+        <thead><tr><th>요청</th><th>처리</th><th>업무</th><th>보안</th><th>메모</th></tr></thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+
+    <p style="margin-top:30px"><button class="btn ghost" id="btnRestart">처음부터 다시</button></p>
+  </div>
+</section>
+
+<script>
+"use strict";
+/* ═════════════════════════════════════════════════════════
+   요청 카드 6장 — PRD 6장
+   원본/답변 안의  ⟦종류:원문|별칭|가짜⟧  는 클릭 가능한 위험 토큰,
+   답변 안의 ⟦susp:…⟧ 는 의심 구간, ⟦hall:…⟧ 은 진짜 환각이다.
+   ═════════════════════════════════════════════════════════ */
+var CARDS = [
+{
+  id:1, prd:'prd-card-1', who:'circle', rounds:[1,2],
+  title:'고객 문의 요약',
+  situation:'이번 주 고객 문의 30건, 유형별로 정리해줘',
+  originLabel:'이름 · 전화번호 · 주문번호가 그대로 담긴 문의 목록',
+  original:
+    '[이번 주 고객 문의 접수 목록 · 발췌]\n' +
+    '1) ⟦name:김서연|고객 A⟧ / ⟦phone:010-0000-1001⟧ / 주문 ⟦order:20241107-8831|주문 A⟧\n' +
+    '   배송이 사흘째 그대로입니다. 언제 오나요?\n' +
+    '2) ⟦name:박도현|고객 B⟧ / ⟦phone:010-0000-1002⟧\n' +
+    '   색상이 상세페이지와 다릅니다. 교환되나요?\n' +
+    '3) ⟦name:이수민|고객 C⟧ / ⟦phone:010-0000-1003⟧ / 주문 ⟦order:20241109-2274|주문 B⟧\n' +
+    '   쿠폰이 중복 적용되지 않습니다.\n' +
+    '   … 외 27건 동일 양식',
+  riskNote:'실명(3곳), 전화번호(3곳), 주문번호(2곳)',
+  accept:['익명화','마스킹'],
+  answerKey:'이름 → 고객 A·B·C, 번호 → 010-**** 마스킹 후 전송',
+  feedback:'결과물은 똑같이 얻었습니다. 원본을 다 줄 필요가 없었던 거죠.',
+  praise:'요청자: 오 벌써요? 이번 주 유형별 비중까지 나왔네요. 빠르시다.',
+  boomerang:'낯선 사람의 AI 창에 1번 카드에서 넣었던 고객 이름과 번호가 떠오른다',
+  badge:'아마도',
+  answer:
+    '문의 30건을 유형별로 묶었습니다.\n' +
+    '· 배송 지연 14건 (47%) — 사흘 이상 정체가 대부분\n' +
+    '· 교환·반품 9건 (30%) — 색상/사이즈 불일치\n' +
+    '· 프로모션 오류 5건 (17%) — 쿠폰 중복 적용 실패\n' +
+    '· 기타 2건 (6%)\n' +
+    '배송 지연이 절반에 가깝습니다. 물류 쪽 공지부터 나가는 편이 좋겠습니다.'
+},
+{
+  id:2, prd:'prd-card-2', who:'square', rounds:[1,2],
+  title:'회의록 정리',
+  situation:'어제 회의록 통째로 넣을 테니 액션 아이템만 뽑아줘',
+  originLabel:'참석자 실명, 미공개 실적 수치, 인사 관련 발언',
+  original:
+    '[10/17 주간 운영회의록 · 전문]\n' +
+    '참석: ⟦name:정우성|영업팀장⟧, ⟦name:한가영|마케팅 리드⟧, ⟦name:오세훈|운영 매니저⟧, ⟦name:류지원|재무 담당⟧, ⟦name:배수아|PO⟧\n' +
+    '· 3분기 매출 ⟦figure:37억 2천만 원|(수치 제외)⟧ 마감, 목표 대비 78%.\n' +
+    '· 신규 채널 CAC ⟦figure:1인당 42,000원|(수치 제외)⟧까지 상승.\n' +
+    '· ⟦hr:운영팀 2명은 연말 조직개편 대상으로 검토 중. 본인 통보 전.|(인사 논의 제외)⟧\n' +
+    '· 다음 주까지 채널별 손익 재산출 필요.',
+  riskNote:'실명(5곳), 미공개 실적(2곳), 인사 논의(1곳)',
+  accept:['요약','익명화'],
+  answerKey:'원문 대신 요약만 넣기 — 직책으로 치환, 수치는 제외',
+  feedback:'이 결과를 만들 수만 있으면 되지, 원본을 다 줄 필요는 없습니다.',
+  praise:'동료: 회의록 넣기만 했는데 액션 아이템이 나왔다고요? 저도 그렇게 할래요.',
+  badge:'확인이 필요합니다',
+  answer:
+    '액션 아이템만 추렸습니다.\n' +
+    '1. 채널별 손익 재산출 — 다음 주까지 (재무)\n' +
+    '2. 목표 대비 미달 구간 원인 분석 — 영업\n' +
+    '3. 신규 채널 획득 비용 점검 후 집행안 재수립 — 마케팅\n' +
+    '4. 운영 인력 배치 관련 후속 논의는 별도 자리에서 — 담당 부서\n' +
+    '기한이 명시되지 않은 항목은 2·3번입니다. 확인이 필요합니다.'
+},
+{
+  id:3, prd:'prd-card-3', who:'circle', rounds:[1,2],
+  title:'경쟁사 뉴스 요약',
+  situation:'공개된 경쟁사 뉴스 3건 요약해줘',
+  originLabel:'공개 기사',
+  original:
+    '[스크랩 · 모두 공개된 기사]\n' +
+    '1) 「E사, 구독형 요금제 개편… 기본가 인하」 (10/12, 산업일보)\n' +
+    '2) 「F사 물류센터 2곳 증설 발표」 (10/14, 경제신문)\n' +
+    '3) 「G사, 하반기 AI 기능 전면 적용」 (10/15, 테크리뷰)\n' +
+    '· 세 건 모두 각 사 공식 보도자료가 원문으로 공개되어 있음.',
+  riskNote:'없음 — 입력은 안전하다',
+  accept:[],
+  answerKey:'수치에 밑줄 → 근거 요구 도구 사용',
+  feedback:'입력이 안전해도 출력은 안전하지 않습니다. 가릴 게 없는 날에도 확인은 남습니다.',
+  praise:'팀장: 경쟁사 동향 정리 좋네요. 73%라는 숫자, 보고서에 그대로 씁시다.',
+  boomerang:'AI가 지어낸 통계가 기사가 되고, 그 기사를 AI가 다시 인용한다',
+  badge:'⭐ 확실합니다',
+  answer:
+    '경쟁사 3사의 움직임은 한 방향입니다. 가격 구조 개편(E사), 물류 확충(F사), AI 기능 확대(G사).\n' +
+    '특히 ⟦hall:업계 관계자의 73%가...⟧ 이 전환을 되돌릴 수 없는 흐름으로 보고 있습니다.\n' +
+    '⟦susp:내년 상반기까지⟧ 동일 체계로 재편될 가능성이 높습니다.',
+  hallTool:'근거요구',
+  hallReveal:'AI: 출처를 확인할 수 없습니다. 앞서 제시한 73%는 제가 만들어낸 수치이며 근거 자료가 없습니다.',
+  hallNote:'출처 없는 통계'
+},
+{
+  id:4, prd:'prd-card-4', who:'square', rounds:[1,2],
+  title:'신제품 사양 정리',
+  situation:'아직 발표 안 한 신제품 사양, 보도자료용으로 다듬어줘',
+  originLabel:'미공개 스펙, 출시일, 가격',
+  original:
+    '[대외비 · 발표 전 자료]\n' +
+    '· 모델명 ⟦spec:VIAS-7 Pro|(가상 모델명) ZX-1|VIAS-0 Demo⟧\n' +
+    '· 배터리 ⟦spec:5,400mAh, 완충 42분|(용량 비공개)|4,000mAh, 완충 60분⟧\n' +
+    '· 센서 ⟦spec:자체 개발 3세대 광학 모듈|(구성 비공개)|일반 광학 모듈⟧\n' +
+    '· 출시일 ⟦date:12월 3일|(출시일 비공개)|O월 O일⟧\n' +
+    '· 가격 ⟦price:898,000원|(가격 비공개)|000,000원⟧',
+  riskNote:'미공개 정보 전체',
+  accept:['가상데이터'],
+  answerKey:'가상 데이터로 치환 — 실제 수치를 비슷한 가짜로 바꿔 문체만 다듬기',
+  feedback:'문체를 다듬는 데 진짜 숫자는 필요 없었습니다. 필요한 건 문장 구조였죠.',
+  praise:'요청자: 보도자료 톤이 딱 맞네요. 사양도 정확하게 들어갔고요.',
+  badge:'아마도',
+  answer:
+    '보도자료 문체로 다듬었습니다.\n' +
+    '「새 모델은 한층 길어진 사용 시간과 새롭게 설계된 광학 모듈을 통해, 일상에서의 촬영 경험을 다시 정의합니다.」\n' +
+    '· 사양 나열은 본문 대신 하단 표로 분리했습니다.\n' +
+    '· 출시일과 가격은 「추후 공지」로 비워 두었습니다.\n' +
+    '문장 길이를 보도자료 평균에 맞춰 조정했습니다.'
+},
+{
+  id:5, prd:'prd-card-5', who:'circle', rounds:[2],
+  title:'지원자 서류 검토',
+  situation:'지원자 12명 이력서 넣을 테니 순위 매겨줘',
+  originLabel:'실명, 학교, 나이, 사진, 주소',
+  original:
+    '[2025 상반기 지원자 명단 · 발췌]\n' +
+    '1) ⟦name:윤제현|지원자 A⟧ · ⟦age:34세|(나이 비공개)⟧ · ⟦school:한빛대 산업공학|(학교 비공개)⟧\n' +
+    '   주소 ⟦addr:경기 성남시 분당구 …|(주소 비공개)⟧ · ⟦photo:증명사진 첨부|(사진 제외)⟧\n' +
+    '2) ⟦name:서지안|지원자 B⟧ · ⟦age:29세|(나이 비공개)⟧ · ⟦school:대성여대 통계학|(학교 비공개)⟧\n' +
+    '   주소 ⟦addr:서울 관악구 …|(주소 비공개)⟧ · ⟦photo:증명사진 첨부|(사진 제외)⟧\n' +
+    '   … 외 10명 동일 양식 (경력 요약은 별도 열)',
+  riskNote:'개인정보 + AI의 편향 판단',
+  accept:['익명화'],
+  answerKey:'익명화 후 → 답변의 순위 근거에 밑줄 → 자가 검토 도구로 편향 확인',
+  feedback:'순위는 나왔습니다. 그 순위가 무엇을 보고 매겨졌는지는, 물어봐야 나왔습니다.',
+  badge:'⭐ 확실합니다',
+  answer:
+    '경력 적합도 기준으로 12명을 정렬했습니다. 상위 3명은 다음과 같습니다.\n' +
+    '1위 — 직무 경험 4년, 유사 도메인 프로젝트 2건.\n' +
+    '2위 — 직무 경험 3년, 정량 분석 역량 우수.\n' +
+    '3위 — 직무 경험 5년이나 ⟦hall:경력 공백이 있어 안정성 측면에서 감점했습니다⟧.\n' +
+    '⟦susp:전반적으로 상위권은 학교 인지도와도 상관관계를 보입니다.⟧',
+  hallTool:'자가검토',
+  hallReveal:'AI: 다시 짚어보면 경력 공백과 학교 인지도는 직무 성과의 근거가 아닙니다. 제가 넣은 감점 기준에는 정당한 근거가 없습니다.',
+  hallNote:'근거 없는 편향 판단'
+},
+{
+  id:6, prd:'prd-card-6', who:'square', rounds:[2],
+  title:'계약 조항 확인',
+  situation:'이 조항이 법적으로 문제없는지 확인해줘',
+  originLabel:'계약서 전문 (거래처명, 금액, 기밀 조항)',
+  original:
+    '[용역계약서 전문 · 발췌]\n' +
+    '갑 ⟦party:주식회사 한울소재|거래처 A⟧ / 을 ⟦party:비아스컴퍼니|당사⟧\n' +
+    '제4조(대금) 총액 ⟦amount:2억 4,000만 원|(금액 비공개)⟧, 검수 후 ⟦amount:60일 이내 지급|(지급 조건 비공개)⟧.\n' +
+    '⟦nda:제9조(비밀유지) 본 계약의 존재 사실 자체를 제3자에게 누설하지 아니한다.|(기밀 조항 제외)⟧\n' +
+    '제11조(해지) 일방은 30일 전 서면 통지로 해지할 수 있다.\n' +
+    '— 확인이 필요한 것은 제11조 해지 조항의 균형입니다.',
+  riskNote:'기밀 문서 전체 + AI가 없는 법 조항을 지어냄',
+  accept:['요약','익명화'],
+  answerKey:'핵심 조항만 발췌·익명화 → 인용된 법 조항에 밑줄 → 교차 확인 도구',
+  feedback:'배운 걸 전부 쓴 카드입니다. 가리고, 의심하고, 확인했습니다.',
+  badge:'⭐ 확실합니다',
+  answer:
+    '해지 조항은 양 당사자에게 동일한 요건을 부여하고 있어 형식적 균형은 갖추어져 있습니다.\n' +
+    '다만 ⟦hall:상법 제312조의4⟧에 따라 용역계약의 일방 해지는 60일 전 통지가 원칙이므로, 30일은 재검토 대상입니다.\n' +
+    '⟦susp:대금 지급 60일 조항⟧도 하도급 관련 기준과 함께 살펴볼 필요가 있습니다.',
+  hallTool:'교차확인',
+  hallReveal:'AI: 교차 확인 결과, 인용한 상법 제312조의4는 존재하지 않는 조항입니다. 제가 조문 번호를 지어냈습니다.',
+  hallNote:'존재하지 않는 법 조항'
+}
+];
+
+/* 검증 도구 — PRD 4대 검증법 */
+var VTOOLS = {
+  '근거요구':'근거 요구',
+  '원문대조':'원문 대조',
+  '교차확인':'교차 확인',
+  '자가검토':'자가 검토'
+};
+var VMISS = {
+  '근거요구':'AI: 제시한 내용은 입력하신 자료에서 그대로 확인됩니다.',
+  '원문대조':'AI: 원문과 대조했습니다. 없는 내용을 덧붙인 부분은 없습니다.',
+  '교차확인':'AI: 다른 자료와 교차했습니다. 상충하는 서술은 발견되지 않았습니다.',
+  '자가검토':'AI: 다시 검토했습니다. 특별히 정정할 부분을 찾지 못했습니다.'
+};
+
+/* 직무별 체크리스트 — PRD 15쪽 대응 */
+var JOBS = {
+  'HR':[
+    '이력서·평가·면담 기록은 이름·나이·학교·주소를 지운 뒤에 올립니다.',
+    '인사 이동과 조직개편은 통보 전까지 어떤 창에도 넣지 않습니다.',
+    'AI가 매긴 순위는 근거를 되물어 편향을 한 번 걷어냅니다.'
+  ],
+  'PO':[
+    '미출시 스펙·출시일·가격은 가상 데이터로 바꿔 넣습니다.',
+    '고객 인터뷰는 실명과 연락처를 지우고 발언만 남깁니다.',
+    '지표를 인용할 땐 출처를 먼저 묻고 보고서에 넣습니다.'
+  ],
+  '디자인':[
+    '시안에 들어간 실제 고객명·주문번호는 더미 데이터로 교체합니다.',
+    '미공개 제품 이미지와 브랜드 자산은 업로드 전에 한 번 멈춥니다.',
+    '레퍼런스로 받은 타사 자료는 권리 관계를 확인하고 씁니다.'
+  ],
+  '개발':[
+    '로그·에러 메시지를 붙여넣기 전에 키·토큰·고객 식별자를 지웁니다.',
+    '운영 DB 샘플 대신 구조가 같은 가짜 데이터를 만들어 씁니다.',
+    'AI가 알려준 API·함수는 실제 문서에서 존재를 확인하고 씁니다.'
+  ]
+};
+
+/* ═════════════════ 상태 ═════════════════ */
+var S = null;
+function freshState(){
+  return {
+    round:1, queue:[], idx:0,
+    biz:0, sec:100,              /* 업무는 0에서 쌓고, 보안은 100에서 지킨다 */
+    trainingOff:false, neverAsk:false, sentInRound:0,
+    masked:{}, underlined:{}, vUsed:[], caught:false, answered:false,
+    log:[], missTally:{}, pendingBoom:0, overMaskTotal:0
+  };
+}
+function $(id){ return document.getElementById(id); }
+function el(tag, cls, txt){
+  var e = document.createElement(tag);
+  if(cls) e.className = cls;
+  if(txt != null) e.textContent = txt;
+  return e;
+}
+function show(id){
+  var all = document.querySelectorAll('.screen');
+  for(var i=0;i<all.length;i++) all[i].classList.remove('on');
+  $(id).classList.add('on');
+  window.scrollTo(0,0);
+}
+function clamp(n){ return Math.max(0, Math.min(100, n)); }
+
+/* ═════════════════ 토큰 파서 ═════════════════
+   ⟦종류:원문|별칭|가짜⟧ 를 하나의 클릭 단위로, 나머지는 단어 단위로 쪼갠다. */
+var MARK = /⟦([a-z]+):([^⟧]*)⟧/g;
+function tokenize(text){
+  var out = [], last = 0, m;
+  MARK.lastIndex = 0;
+  while((m = MARK.exec(text)) !== null){
+    if(m.index > last) pushWords(out, text.slice(last, m.index));
+    var parts = m[2].split('|');
+    out.push({ w:parts[0], kind:m[1], alias:parts[1]||'', fake:parts[2]||'' });
+    last = m.index + m[0].length;
+  }
+  if(last < text.length) pushWords(out, text.slice(last));
+  return out;
+}
+function pushWords(out, chunk){
+  var pieces = chunk.split(/(\s+)/);
+  for(var i=0;i<pieces.length;i++){
+    if(pieces[i] === '') continue;
+    if(/^\s+$/.test(pieces[i])) out.push({ ws:pieces[i] });
+    else out.push({ w:pieces[i], kind:'' });
+  }
+}
+
+/* ═════════════════ 가리는 4기법 ═════════════════ */
+function maskChars(s){
+  if(/^\d{3}-\d{3,4}-\d{4}$/.test(s)) return s.slice(0,3) + '-****-****';
+  if(/^[0-9-]+$/.test(s)) return s.replace(/\d/g,'*');
+  var first = s.slice(0,1);
+  return first + s.slice(1).replace(/\S/g,'*');
+}
+function transform(tok, tool){
+  if(tool === '익명화')      return tok.alias || '[익명]';
+  if(tool === '마스킹')      return maskChars(tok.w);
+  if(tool === '요약')        return tok.alias || '(요약)';
+  if(tool === '가상데이터')  return tok.fake || tok.alias || '(가상값)';
+  return tok.w;
+}
+
+/* ═════════════════ 게이지 ═════════════════ */
+function paintGauges(){
+  $('barBiz').style.width = S.biz + '%';
+  $('barSec').style.width = S.sec + '%';
+  $('numBiz').textContent = S.biz;
+  $('numSec').textContent = S.sec;
+}
+function score(dBiz, dSec){
+  S.biz = clamp(S.biz + dBiz);
+  S.sec = clamp(S.sec + dSec);
+  paintGauges();
+}
+
+/* ═════════════════ 라운드 시작 ═════════════════ */
+function startRound(n){
+  var keep = S ? { neverAsk:S.neverAsk } : null;
+  var prev = S;
+  S = freshState();
+  S.round = n;
+  if(n === 2 && prev){ S.log = prev.log; }
+  S.queue = CARDS.filter(function(c){ return c.rounds.indexOf(n) >= 0; });
+  $('gauges').hidden = (n === 1);
+  $('toolsBox').hidden = (n === 1);
+  $('btnReject').hidden = (n === 1);
+  $('settingsBox').hidden = true;
+  $('roundTag').textContent = (n === 1)
+    ? '1회차 · 그냥 붙여넣는 하루'
+    : '2회차 · AI 안전 관제실';
+  $('roundTag').setAttribute('data-prd', n === 1 ? 'prd-prologue' : 'prd-round-2');
+  paintGauges();
+  paintDots();
+  show('s-play');
+  loadCard();
+}
+function paintDots(){
+  var dots = $('dots').children;
+  for(var i=0;i<dots.length;i++){
+    dots[i].className = 'dot';
+    var card = CARDS[i];
+    var pos = S.queue.indexOf(card);
+    if(pos < 0){ dots[i].style.opacity = '.12'; continue; }
+    dots[i].style.opacity = '';
+    if(pos < S.idx) dots[i].className = 'dot done';
+    else if(pos === S.idx) dots[i].className = 'dot now';
+  }
+}
+
+/* ═════════════════ 카드 로드 ═════════════════ */
+var curTool = null;
+function card(){ return S.queue[S.idx]; }
+
+function loadCard(){
+  if(S.idx >= S.queue.length){ endRound(); return; }
+  var c = card();
+  S.masked = {}; S.underlined = {}; S.vUsed = []; S.caught = false; S.answered = false;
+  curTool = null;
+
+  $('whoShape').className = 'who' + (c.who === 'square' ? ' sq' : '');
+  $('situation').textContent = '"' + c.situation + '"';
+  $('answerBox').hidden = true;
+  $('verdicts').innerHTML = '';
+  $('btnSend').hidden = false;
+  $('btnSend').disabled = false;
+  $('btnReject').disabled = false;
+  $('pasted').innerHTML = '<span class="ph">여기에 붙여넣기</span>';
+  $('vCount').textContent = '0/2';
+  clearToolSel();
+
+  /* 2회차 3번째 카드부터 설정 아이콘이 조용히 나타난다 */
+  if(S.round === 2 && S.idx >= 2) $('settingsBox').hidden = false;
+
+  $('docHint').textContent = (S.round === 1)
+    ? '원본 문서입니다. 그대로 전송하면 됩니다.'
+    : '위험해 보이는 항목을 찾아 클릭하세요. 도구를 고른 뒤 클릭하면 그 자리에서 바뀝니다.';
+
+  renderDoc();
+  paintDots();
+}
+
+function renderDoc(){
+  var c = card();
+  var doc = $('doc');
+  doc.innerHTML = '';
+  var toks = tokenize(c.original);
+  c._toks = toks;
+  for(var i=0;i<toks.length;i++){
+    var t = toks[i];
+    if(t.ws){ doc.appendChild(document.createTextNode(t.ws)); continue; }
+    var span = el('span', 'tok');
+    var applied = S.masked[i];
+    if(applied){
+      span.className = 'tok hit';
+      span.textContent = transform(t, applied);
+      span.title = '되돌리려면 다시 클릭';
+    } else {
+      span.textContent = t.w;
+    }
+    if(S.round === 2){
+      span.classList.add('risk');
+      (function(idx){
+        span.addEventListener('click', function(){ toggleWord(idx); });
+      })(i);
+    }
+    doc.appendChild(span);
+  }
+}
+
+function toggleWord(i){
+  if(S.answered) return;
+  if(S.masked[i]){ delete S.masked[i]; }
+  else {
+    if(!curTool){
+      flashHint('먼저 도구를 고르세요 — 익명화 · 마스킹 · 요약 · 가상데이터');
+      return;
+    }
+    S.masked[i] = curTool;
+  }
+  renderDoc();
+}
+function flashHint(msg){
+  var h = $('toolHint');
+  h.textContent = msg;
+  h.style.color = 'var(--warn)';
+  setTimeout(function(){
+    h.style.color = '';
+    h.textContent = '도구를 고른 뒤 원본의 단어를 클릭하면 그 자리에서 바뀝니다.';
+  }, 1800);
+}
+function clearToolSel(){
+  var ts = document.querySelectorAll('.tool[data-tool]');
+  for(var i=0;i<ts.length;i++) ts[i].classList.remove('sel');
+}
+
+/* ═════════════════ 전송 ═════════════════ */
+function requestSend(){
+  if(S.round === 2 && !S.neverAsk){
+    $('mdNeverWrap').hidden = (S.sentInRound < 2);
+    $('modalSend').classList.add('on');
+    return;
+  }
+  doSend();
+}
+function doSend(){
+  $('modalSend').classList.remove('on');
+  S.sentInRound++;
+  var c = card();
+  var toks = c._toks;
+
+  /* AI 창에 실제로 들어간 문장 */
+  var out = '';
+  for(var i=0;i<toks.length;i++){
+    var t = toks[i];
+    out += t.ws ? t.ws : (S.masked[i] ? transform(t, S.masked[i]) : t.w);
+  }
+  var box = $('pasted');
+  box.innerHTML = '';
+  var pre = el('div', null, out);
+  pre.style.whiteSpace = 'pre-wrap';
+  pre.style.fontSize = '13.5px';
+  box.appendChild(pre);
+
+  /* 남은 위험 요소가 점으로 쌓인다 — 입력은 남는다 */
+  var leaked = 0;
+  for(var j=0;j<toks.length;j++) if(toks[j].kind && !S.masked[j]) leaked++;
+  var mem = $('memory');
+  for(var k=0;k<leaked;k++) mem.appendChild(el('i','mem'));
+
+  $('btnSend').hidden = true;
+  $('btnReject').disabled = true;
+  showAnswer();
+}
+
+function showAnswer(){
+  var c = card();
+  S.answered = true;
+  $('answerBox').hidden = false;
+  var b = $('badge');
+  b.textContent = c.badge;
+  b.className = 'badge' + (c.badge === '⭐ 확실합니다' ? ' confident' : '');
+  $('ulHint').hidden = (S.round === 1);
+  $('verifyBox').hidden = (S.round === 1);
+  renderAnswer();
+  var vts = document.querySelectorAll('.tool[data-vtool]');
+  for(var i=0;i<vts.length;i++) vts[i].classList.remove('used');
+}
+
+function renderAnswer(){
+  var c = card();
+  var box = $('answerText');
+  box.innerHTML = '';
+  var toks = tokenize(c.answer);
+  c._ans = toks;
+  for(var i=0;i<toks.length;i++){
+    var t = toks[i];
+    if(t.ws){ box.appendChild(document.createTextNode(t.ws)); continue; }
+    var span = el('span','utok');
+    span.textContent = t.w;
+    if(S.underlined[i]) span.classList.add('ul');
+    if(S.round === 2){
+      span.classList.add('susp');
+      (function(idx){
+        span.addEventListener('click', function(){
+          if(S.underlined[idx]) delete S.underlined[idx];
+          else S.underlined[idx] = true;
+          renderAnswer();
+        });
+      })(i);
+    }
+    box.appendChild(span);
+  }
+}
+function hallUnderlined(){
+  var c = card(), toks = c._ans || [];
+  for(var i=0;i<toks.length;i++) if(toks[i].kind === 'hall' && S.underlined[i]) return true;
+  return false;
+}
+
+/* ═════════════════ 검증 도구 (턴당 2개) ═════════════════ */
+function useVTool(key, btn){
+  var c = card();
+  if(S.round !== 2 || !S.answered) return;
+  if(S.vUsed.indexOf(key) >= 0) return;
+  if(S.vUsed.length >= 2){ addVerdict('턴당 검증은 2개까지입니다. 어디를 의심할지 고르는 것도 실력입니다.', true); return; }
+
+  var isHallCard = !!c.hallTool;
+  if(isHallCard && key === c.hallTool && !hallUnderlined()){
+    addVerdict('AI: 어느 부분을 확인할까요? 먼저 답변에서 의심되는 곳에 밑줄을 그어 주세요.', true);
+    return;
+  }
+
+  S.vUsed.push(key);
+  btn.classList.add('used');
+  $('vCount').textContent = S.vUsed.length + '/2';
+  score(-3, 0);                      /* 검증 도구 1개 사용: 업무 -3 (시간 소모) */
+
+  if(isHallCard && key === c.hallTool){
+    S.caught = true;
+    score(5, 5);                     /* 환각을 잡아냄: +5 / +5 */
+    addVerdict(c.hallReveal, false);
+  } else {
+    addVerdict(VMISS[key], true);
+  }
+}
+function addVerdict(text, bad){
+  var v = el('div', 'verdict' + (bad ? ' bad' : ''), text);
+  $('verdicts').appendChild(v);
+}
+
+/* ═════════════════ 채점 — PRD 5장 표 ═════════════════ */
+var KIND_LABEL = {
+  name:'실명', phone:'전화번호', order:'주문번호',
+  figure:'미공개 실적', hr:'인사 논의',
+  spec:'미공개 정보', date:'미공개 정보', price:'미공개 정보',
+  age:'개인정보', school:'개인정보', addr:'개인정보', photo:'개인정보',
+  party:'기밀 문서 내용', amount:'기밀 문서 내용', nda:'기밀 문서 내용'
+};
+function tally(label){ S.missTally[label] = (S.missTally[label] || 0) + 1; }
+
+function submit(){
+  var c = card();
+  if(S.round === 1){ submitRound1(); return; }
+
+  var toks = c._toks, total = 0, done = 0, over = 0, missedKinds = [];
+  for(var i=0;i<toks.length;i++){
+    if(toks[i].kind){
+      total++;
+      if(S.masked[i]) done++;
+      else missedKinds.push(KIND_LABEL[toks[i].kind] || '민감 정보');
+    } else if(S.masked[i]) over++;
+  }
+  S.overMaskTotal += over;
+
+  var dis, dBiz, dSec, notes = [];
+  if(total === 0 || done === total){
+    dis = total === 0 ? '그대로 전송 (가릴 것 없음)' : '가려서 처리 (정답)';
+    dBiz = 15; dSec = 0;
+    notes.push(c.feedback);
+  } else if(done === 0){
+    dis = '그대로 처리';
+    dBiz = 15; dSec = -20;
+    notes.push('원본이 그대로 나갔습니다. ' + c.answerKey + ' — 이렇게 했다면 결과는 같고 위험만 빠졌습니다.');
+  } else {
+    dis = '가리다 일부 놓침';
+    dBiz = 15; dSec = -8;
+    notes.push('놓친 항목: ' + missedKinds.join(', ') + '. ' + c.answerKey);
+  }
+  for(var m=0;m<missedKinds.length;m++) tally(missedKinds[m]);
+
+  /* 검증 없이 답변 제출 → 후반 부메랑 (-25) */
+  if(c.hallTool && !S.caught){
+    S.pendingBoom += 25;
+    tally('검증 없이 제출');
+    notes.push('이 답변에는 ' + c.hallNote + '가 섞여 있었습니다. 검증 없이 나간 내용은 하루가 끝날 무렵 돌아옵니다.');
+  } else if(c.hallTool && S.caught){
+    notes.push('환각을 잡아냈습니다. 확신 배지는 근거가 아닙니다.');
+  }
+  if(over >= 6) notes.push('가린 곳이 꽤 많네요. 필요 이상으로 지워도 벌점은 없지만, 결과물의 쓸모는 조금씩 줄어듭니다.');
+
+  score(dBiz, dSec);
+  pushLog(c, dis, dBiz, dSec, notes.join(' '));
+  nextCard(notes);
+}
+
+function submitRound1(){
+  var c = card();
+  pushLog(c, '그대로 전송', 0, 0, c.praise);
+  nextCard([c.praise]);
+}
+
+function reject(){
+  var c = card();
+  score(0, 0);                        /* 요청을 거절: 0 / 0 */
+  pushLog(c, '거절', 0, 0, '거절했습니다. 아무것도 새지 않았고, 아무 일도 진행되지 않았습니다.');
+  nextCard(['거절했습니다. 안전합니다. 다만 이 요청은 오늘 끝나지 않았습니다.']);
+}
+
+function pushLog(c, dis, dBiz, dSec, note){
+  S.log.push({ round:S.round, title:c.title, dis:dis, biz:dBiz, sec:dSec, note:note });
+}
+
+function nextCard(notes){
+  $('btnSubmit').disabled = true;
+  $('verdicts').innerHTML = '';
+  for(var i=0;i<notes.length;i++) addVerdict(notes[i], false);
+  var go = el('button', 'btn sm', S.idx + 1 >= S.queue.length ? '하루 마감' : '다음 요청');
+  go.addEventListener('click', function(){
+    S.idx++;
+    $('btnSubmit').disabled = false;
+    loadCard();
+  });
+  var wrap = el('div', 'actions');
+  wrap.appendChild(go);
+  $('verdicts').appendChild(wrap);
+}
+
+function endRound(){
+  if(S.round === 1) runBoomerang();
+  else runEnding();
+}
+
+/* ═════════════════ 부메랑 — PRD 4장 ═════════════════ */
+function runBoomerang(){
+  show('s-boom');
+  var beam = $('beam');
+  beam.innerHTML = '';
+  var scenes = [
+    { prd:'prd-boomerang-1', lines:[
+      '퇴근하고, 며칠이 지납니다.',
+      '어딘가에서 누군가 AI에게 묻습니다. 당신이 아는 사람은 아닙니다.',
+      { win:'<b>낯선 사람:</b> 배송 지연 문의 응대 예시 좀 보여줘<br><br>' +
+             '<b>AI:</b> 예시입니다 —<br>' +
+             '<span class="leak">김서연 010-0000-1001</span> 님, 주문 <span class="leak">20241107-8831</span> 건 배송 지연에 대해…' },
+      { quote:'낯선 사람의 AI 창에 1번 카드에서 넣었던 고객 이름과 번호가 떠오른다' },
+      '당신은 그 사람을 모릅니다. 그 사람도 김서연 님을 모릅니다.',
+      '당신이 넣은 것은, 당신이 닫은 창 안에 남아 있지 않았습니다.'
+    ]},
+    { prd:'prd-boomerang-2', lines:[
+      '같은 주, 다른 화면.',
+      { win:'<b>산업일보</b> · 기획기사<br><br>' +
+             '업계 재편이 가속되고 있다. <span class="leak">업계 관계자의 73%가...</span> 이 전환을 되돌릴 수 없는 흐름으로 보고 있다는 분석도 나온다.' },
+      '그 숫자는 누구에게 물어본 적이 없습니다. 당신의 보고서에서 나왔고, 당신의 보고서는 AI에서 나왔습니다.',
+      { win:'<b>다른 사람:</b> 업계 전환에 대한 근거 있어?<br><br>' +
+             '<b>AI:</b> 네. <span class="leak">산업일보 보도에 따르면 업계 관계자의 73%가</span> 이를 불가피한 흐름으로 보고 있습니다. <br><span style="opacity:.6">⭐ 확실합니다</span>' },
+      { quote:'AI가 지어낸 통계가 기사가 되고, 그 기사를 AI가 다시 인용한다' },
+      '지어낸 숫자가 사람을 한 번 거쳐서, 근거가 되어 돌아왔습니다.'
+    ]}
+  ];
+
+  var flat = [], delay = 0;
+  for(var s=0;s<scenes.length;s++){
+    var holder = el('div');
+    holder.setAttribute('data-prd', scenes[s].prd);
+    beam.appendChild(holder);
+    for(var i=0;i<scenes[s].lines.length;i++){
+      var L = scenes[s].lines[i], node;
+      if(typeof L === 'string'){ node = el('p', null, L); }
+      else if(L.quote){ node = el('p', 'quote', L.quote); }
+      else { node = el('div','strangerwin'); node.innerHTML = L.win; node.style.opacity = 0; node.style.animation = 'fade .9s forwards'; }
+      node.style.animationDelay = delay + 's';
+      holder.appendChild(node);
+      flat.push(node);
+      delay += 1.5;
+    }
+  }
+  var endWrap = el('p');
+  endWrap.style.animationDelay = delay + 's';
+  var btn = el('button','btn','…');
+  btn.style.background = '#e8e4da';
+  btn.style.color = '#14141a';
+  btn.addEventListener('click', function(){ show('s-again'); });
+  endWrap.appendChild(btn);
+  beam.appendChild(endWrap);
+}
+
+/* ═════════════════ 엔딩 — PRD 10장 ═════════════════ */
+var QUAD = {
+  'q-native':{ name:'AI 네이티브', line:'가려서 썼고, 의심할 곳을 골라 확인했습니다. 오늘 하루, 일도 되고 아무것도 새지 않았습니다.' },
+  'q-leak'  :{ name:'유출 사고',   line:'일은 다 끝냈습니다. 그리고 1회차와 같은 것들이 함께 나갔습니다.' },
+  'q-safe'  :{ name:'안전한 무능', line:'안전했지만, 아무 일도 못 했습니다. 가려서 쓰면 둘 다 가능했어요.' },
+  'q-worst' :{ name:'최악',        line:'일도 남지 않았고, 정보는 나갔습니다. 다행히 이건 게임입니다.' }
+};
+function runEnding(){
+  if(S.pendingBoom > 0) score(0, -S.pendingBoom);   /* 검증 없이 제출한 답변이 후반에 돌아온다 */
+  if(S.trainingOff) score(0, 10);                   /* 숨겨진 학습 스위치를 껐다면 보안 +10 */
+
+  var hiB = S.biz >= 50, hiS = S.sec >= 50;
+  var key = hiB ? (hiS ? 'q-native' : 'q-leak') : (hiS ? 'q-safe' : 'q-worst');
+  var cells = document.querySelectorAll('.quad .cell');
+  for(var i=0;i<cells.length;i++) cells[i].classList.remove('win');
+  $(key).classList.add('win');
+
+  $('endTitle').textContent = QUAD[key].name;
+  $('endScore').textContent = '업무 완수 ' + S.biz + ' / 보안 ' + S.sec +
+    (S.trainingOff ? ' · 학습 사용 끔 보너스 +10 포함' : '');
+
+  $('policyNote').hidden = S.trainingOff;
+
+  /* 가장 자주 놓친 것 */
+  var top = null;
+  for(var k in S.missTally){
+    if(!Object.prototype.hasOwnProperty.call(S.missTally, k)) continue;
+    if(!top || S.missTally[k] > S.missTally[top]) top = k;
+  }
+  $('scMissed').textContent = top
+    ? ('→ ' + top + ' (' + S.missTally[top] + '회)')
+    : '→ 놓친 것이 없습니다. 오늘은 전부 가리고 확인했습니다.';
+
+  /* 처리 기록 */
+  var body = $('logBody');
+  body.innerHTML = '';
+  for(var j=0;j<S.log.length;j++){
+    var L = S.log[j];
+    var tr = el('tr');
+    tr.appendChild(el('td', null, (L.round === 1 ? '1회차 · ' : '') + L.title));
+    tr.appendChild(el('td', null, L.dis));
+    tr.appendChild(el('td', null, L.round === 1 ? '—' : (L.biz > 0 ? '+' : '') + L.biz));
+    tr.appendChild(el('td', null, L.round === 1 ? '—' : (L.sec > 0 ? '+' : '') + L.sec));
+    tr.appendChild(el('td', null, L.note));
+    body.appendChild(tr);
+  }
+  show('s-end');
+}
+
+/* ── 산출물 1: 안전 카드 이미지 ── */
+var pickedJob = null;
+function pickJob(job){
+  pickedJob = job;
+  var btns = document.querySelectorAll('.tool[data-job]');
+  for(var i=0;i<btns.length;i++) btns[i].classList.toggle('sel', btns[i].getAttribute('data-job') === job);
+  var ul = $('scJob');
+  ul.innerHTML = '';
+  var list = JOBS[job];
+  for(var j=0;j<list.length;j++) ul.appendChild(el('li', null, list[j]));
+}
+function drawCard(){
+  var cv = $('cardCanvas'), g = cv.getContext('2d');
+  var W = cv.width, H = cv.height;
+  g.fillStyle = '#f4f1ea'; g.fillRect(0,0,W,H);
+  g.strokeStyle = '#1b1b1f'; g.lineWidth = 3; g.strokeRect(18,18,W-36,H-36);
+  g.fillStyle = '#1b1b1f';
+  g.font = 'bold 34px "Malgun Gothic", sans-serif';
+  g.fillText('내 직무 안전 카드', 56, 92);
+  g.font = '20px "Malgun Gothic", sans-serif';
+  g.fillStyle = '#7d776b';
+  g.fillText('우리는 우리가 넣은 대로 된다', 56, 128);
+
+  var y = 200;
+  g.fillStyle = '#7d776b'; g.font = '19px "Malgun Gothic", sans-serif';
+  g.fillText('당신이 가장 자주 놓친 것', 56, y);
+  g.fillStyle = '#1b1b1f'; g.font = 'bold 26px "Malgun Gothic", sans-serif';
+  g.fillText($('scMissed').textContent, 56, y + 40);
+
+  y += 120;
+  g.fillStyle = '#7d776b'; g.font = '19px "Malgun Gothic", sans-serif';
+  g.fillText('당신의 직무에서 특히 조심할 것', 56, y);
+  g.fillStyle = '#1b1b1f'; g.font = 'bold 26px "Malgun Gothic", sans-serif';
+  g.fillText(pickedJob ? pickedJob : '(직무 미선택)', 56, y + 40);
+  g.font = '19px "Malgun Gothic", sans-serif';
+  var lines = pickedJob ? JOBS[pickedJob] : ['직무를 고르면 체크리스트가 채워집니다.'];
+  var ly = y + 84;
+  for(var i=0;i<lines.length;i++){
+    var words = lines[i].split(' '), line = '· ';
+    for(var w=0;w<words.length;w++){
+      var test = line + words[w] + ' ';
+      if(g.measureText(test).width > W - 130){ g.fillText(line, 56, ly); ly += 32; line = '  ' + words[w] + ' '; }
+      else line = test;
+    }
+    g.fillText(line, 56, ly); ly += 44;
+  }
+
+  g.fillStyle = '#7d776b'; g.font = '19px "Malgun Gothic", sans-serif';
+  g.fillText('오늘의 안전 3습관', 56, H - 150);
+  g.fillStyle = '#1b1b1f'; g.font = 'bold 32px "Malgun Gothic", sans-serif';
+  g.fillText('멈추기 · 가리기 · 확인하기', 56, H - 104);
+  g.fillStyle = '#7d776b'; g.font = '18px "Malgun Gothic", sans-serif';
+  g.fillText('업무 완수 ' + S.biz + ' / 보안 ' + S.sec + ' — ' + $('endTitle').textContent, 56, H - 56);
+
+  cv.hidden = false;
+  var a = $('dlCard');
+  a.href = cv.toDataURL('image/png');
+  a.hidden = false;
+  a.textContent = '';
+  a.click();
+}
+
+/* ── 산출물 2: 검증 프롬프트 복사 ── */
+function copyPrompts(){
+  var text = $('promptText').textContent;
+  var done = function(){
+    $('copyMsg').textContent = '복사했습니다. 내일 첫 질문에 붙여 쓰세요.';
+    setTimeout(function(){ $('copyMsg').textContent = ''; }, 2600);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done, function(){ legacyCopy(text, done); });
+  } else legacyCopy(text, done);
+}
+function legacyCopy(text, done){
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); done(); }
+  catch(e){ $('copyMsg').textContent = '복사가 막혔습니다. 위 문장을 직접 선택해 복사하세요.'; }
+  document.body.removeChild(ta);
+}
+
+/* ═════════════════ 배선 ═════════════════ */
+$('btnStart').addEventListener('click', function(){ startRound(1); });
+$('btnAgain').addEventListener('click', function(){ startRound(2); });
+$('btnSend').addEventListener('click', requestSend);
+$('btnReject').addEventListener('click', reject);
+$('btnSubmit').addEventListener('click', submit);
+$('btnRestart').addEventListener('click', function(){ location.reload(); });
+
+$('mdGo').addEventListener('click', function(){
+  if($('mdNever').checked) S.neverAsk = true;
+  doSend();
+});
+$('mdBack').addEventListener('click', function(){
+  $('modalSend').classList.remove('on');
+});
+
+var toolBtns = document.querySelectorAll('.tool[data-tool]');
+for(var ti=0; ti<toolBtns.length; ti++){
+  (function(btn){
+    btn.addEventListener('click', function(){
+      var t = btn.getAttribute('data-tool');
+      if(curTool === t){ curTool = null; clearToolSel(); return; }
+      curTool = t;
+      clearToolSel();
+      btn.classList.add('sel');
+    });
+  })(toolBtns[ti]);
+}
+$('btnUndo').addEventListener('click', function(){ S.masked = {}; renderDoc(); });
+
+var vBtns = document.querySelectorAll('.tool[data-vtool]');
+for(var vi=0; vi<vBtns.length; vi++){
+  (function(btn){
+    btn.addEventListener('click', function(){ useVTool(btn.getAttribute('data-vtool'), btn); });
+  })(vBtns[vi]);
+}
+
+$('btnGear').addEventListener('click', function(){ $('gearPanel').classList.toggle('on'); });
+$('swTrain').addEventListener('click', function(){
+  var on = !$('swTrain').classList.contains('off');
+  if(on){
+    $('swTrain').classList.add('off');
+    $('swState').textContent = '꺼짐 — 이 대화는 학습에 쓰이지 않습니다. (보안 +10)';
+    S.trainingOff = true;
+  } else {
+    $('swTrain').classList.remove('off');
+    $('swState').textContent = '켜져 있음';
+    S.trainingOff = false;
+  }
+});
+
+var jobBtns = document.querySelectorAll('.tool[data-job]');
+for(var ji=0; ji<jobBtns.length; ji++){
+  (function(btn){
+    btn.addEventListener('click', function(){ pickJob(btn.getAttribute('data-job')); });
+  })(jobBtns[ji]);
+}
+$('btnCardImg').addEventListener('click', drawCard);
+$('btnCopy').addEventListener('click', copyPrompts);
+</script>
+</body>
+</html>

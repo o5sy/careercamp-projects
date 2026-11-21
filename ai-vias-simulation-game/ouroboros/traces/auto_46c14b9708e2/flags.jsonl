@@ -1,0 +1,4 @@
+{"at": "2026-09-12T07:20:47.024194", "data": {"auto_session_id": "auto_46c14b9708e2", "closure_route": "partial_seed_from_evidence", "ledger_ready": false, "open_gaps": ["actors", "inputs", "outputs", "constraints", "non_goals", "acceptance_criteria", "verification_plan", "failure_modes", "runtime_context"], "phase": "interview", "rounds_completed": 0, "timeout_seconds": 600.0}, "event": "runtime.deadline.interview.fired", "type": "event_flag"}
+{"kind": "terminal_phase", "type": "state_flag", "value": "complete"}
+{"kind": "degraded_seed", "recovery_reason": "interview_phase_deadline", "type": "state_flag", "unresolved_slots": ["actors", "inputs", "outputs", "constraints", "non_goals", "acceptance_criteria", "verification_plan", "failure_modes", "runtime_context"], "value": true}
+{"kind": "open_gaps", "type": "state_flag", "value": ["actors", "inputs", "outputs", "constraints", "acceptance_criteria", "verification_plan", "failure_modes", "runtime_context"]}

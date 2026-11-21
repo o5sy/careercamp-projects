@@ -4,6 +4,7 @@
 
 ## 프로젝트
 
+- [`ai-vias-simulation-game/`](./ai-vias-simulation-game) — AI 안전 습관 게임 기획과 도구 비교 실험 (설치 없이 `index.html`)
 - [`hyanghae/`](./hyanghae) — Vite 기반 바닐라 JS 프로젝트
 - [`kok-jibeo/`](./kok-jibeo) — AI 질문 훈련 게임 (React + Vite + Tailwind CSS)
 - [`ni-chaek-im/`](./ni-chaek-im) — React + Vite 프로젝트

@@ -1,0 +1,119 @@
+{
+  "assumptions": [],
+  "auto_session_id": "auto_46c14b9708e2",
+  "blocker": null,
+  "counts": {
+    "ambiguity": 0,
+    "decisions": 2,
+    "flags": 4,
+    "gated": 0,
+    "lateral": 0,
+    "promoted": 2,
+    "questions": 0,
+    "rejected": 0
+  },
+  "degraded": true,
+  "gate_findings": [
+    {
+      "code": "ledger_open_gap",
+      "fingerprint": "5ff6a32428ba5c67",
+      "message": "Ledger required section is unresolved: actors",
+      "repair_instruction": "Resolve the ledger section before allowing auto execution.",
+      "severity": "medium",
+      "target": "actors"
+    },
+    {
+      "code": "ledger_open_gap",
+      "fingerprint": "7c2927793d7914ca",
+      "message": "Ledger required section is unresolved: inputs",
+      "repair_instruction": "Resolve the ledger section before allowing auto execution.",
+      "severity": "medium",
+      "target": "inputs"
+    },
+    {
+      "code": "ledger_open_gap",
+      "fingerprint": "32071640d35bc07b",
+      "message": "Ledger required section is unresolved: outputs",
+      "repair_instruction": "Resolve the ledger section before allowing auto execution.",
+      "severity": "medium",
+      "target": "outputs"
+    },
+    {
+      "code": "ledger_open_gap",
+      "fingerprint": "ce8fbb13680d29e6",
+      "message": "Ledger required section is unresolved: constraints",
+      "repair_instruction": "Resolve the ledger section before allowing auto execution.",
+      "severity": "medium",
+      "target": "constraints"
+    },
+    {
+      "code": "ledger_open_gap",
+      "fingerprint": "6dc4d93b1c72a63d",
+      "message": "Ledger required section is unresolved: acceptance_criteria",
+      "repair_instruction": "Resolve the ledger section before allowing auto execution.",
+      "severity": "medium",
+      "target": "acceptance_criteria"
+    },
+    {
+      "code": "ledger_open_gap",
+      "fingerprint": "c6b9e15f7221b80c",
+      "message": "Ledger required section is unresolved: verification_plan",
+      "repair_instruction": "Resolve the ledger section before allowing auto execution.",
+      "severity": "medium",
+      "target": "verification_plan"
+    },
+    {
+      "code": "ledger_open_gap",
+      "fingerprint": "7ae45ab7a38d6f50",
+      "message": "Ledger required section is unresolved: failure_modes",
+      "repair_instruction": "Resolve the ledger section before allowing auto execution.",
+      "severity": "medium",
+      "target": "failure_modes"
+    },
+    {
+      "code": "ledger_open_gap",
+      "fingerprint": "331695476d0443d2",
+      "message": "Ledger required section is unresolved: runtime_context",
+      "repair_instruction": "Resolve the ledger section before allowing auto execution.",
+      "severity": "medium",
+      "target": "runtime_context"
+    }
+  ],
+  "grade": "B",
+  "interview_closure_mode": null,
+  "interview_session_id": "interview_69d72a8dbd0b4306",
+  "non_goals": [
+    "For auto MVP scope, cloud sync, paid services, authentication, production deployment are non-goals unless explicitly requested."
+  ],
+  "open_gaps": [
+    "actors",
+    "inputs",
+    "outputs",
+    "constraints",
+    "acceptance_criteria",
+    "verification_plan",
+    "failure_modes",
+    "runtime_context"
+  ],
+  "phase": "complete",
+  "provenance_histogram": {
+    "user_confirmed": 2
+  },
+  "qa": {
+    "differences": [],
+    "passed": null,
+    "score": null,
+    "suggestions": [],
+    "verdict": null
+  },
+  "run_id": "auto_46c14b9708e2",
+  "seed_decision_provenance": {
+    "user_confirmed": 1
+  },
+  "seed_id": "seed_139c9936e5b2",
+  "seed_origin": "auto_pipeline",
+  "seed_path": "C:\\Users\\user\\.ouroboros\\seeds\\seed_139c9936e5b2.yaml",
+  "status": "complete",
+  "stop_reason_code": null,
+  "unverified_provenance_findings": []
+}

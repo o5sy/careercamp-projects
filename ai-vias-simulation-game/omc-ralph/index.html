@@ -1,0 +1,1729 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>우리는 우리가 넣은 대로 된다</title>
+<link rel="icon" href="data:,">
+<style>
+/* ===================== S1 reset + :root tokens ===================== */
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --bg:#f4f1ea; --panel:#ffffff; --ink:#1c1c1c; --sub:#6b6b6b; --line:#d8d3c8;
+  --accent:#2f6f4f; --danger:#a33c3c; --warn:#b8892b; --ghost:#dcd6c8; --dark:#3a3630;
+  --office:#efe9dc; --ai:#eef2f0; --bubble:#ffffff;
+  --dur-fly:520ms; --dur-settle:180ms; --dur-darken:900ms; --dur-freeze:600ms;
+  --dur-flood:420ms; --dur-forfeit:400ms; --dur-chip:900ms; --dur-drain:2000ms;
+  --dur-article:1400ms;
+  font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;
+}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);}
+body{font-size:15px;line-height:1.6;}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:.5em .9em;color:var(--ink)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button:hover:not(:disabled){border-color:var(--accent)}
+[hidden]{display:none!important}
+h1,h2,h3{margin:.2em 0}
+/* ===================== S2 layout ===================== */
+#app{max-width:1100px;margin:0 auto;padding:12px;padding-block:16px}
+.screen{display:flex;flex-direction:column;gap:12px}
+.statusbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.statusbar__left{display:flex;align-items:center;gap:10px}
+.plan{font-size:12px;color:var(--sub);position:relative}
+.plan .gear{margin-left:6px;cursor:pointer;background:none;border:none;font-size:14px}
+.gauges{display:flex;gap:14px;flex-wrap:wrap}
+.stage{display:flex;gap:14px;align-items:stretch}
+.pane-office{flex:1;background:var(--office);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:260px}
+.pane-ai{flex:1;background:var(--ai);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:260px;position:relative}
+.pane-ai__dotzone{position:absolute;top:8px;right:8px;width:60px;height:36px;pointer-events:none}
+.toolbar{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+.toolrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.toolrow__label{font-size:12px;color:var(--sub);min-width:44px}
+.sendrow{display:flex;gap:10px;justify-content:flex-end}
+@media (max-width:820px){
+  .stage{flex-direction:column}
+  .doc--clauses .doc__line{min-height:44px;display:flex;align-items:center}
+}
+/* ===================== S3 components ===================== */
+.gauge{display:flex;flex-direction:column;gap:2px;min-width:150px}
+.gauge__label{font-size:12px;color:var(--sub);display:flex;justify-content:space-between}
+.gauge__bar{height:14px;border-radius:7px;background:var(--ghost);overflow:hidden;display:flex;position:relative;border:1px solid var(--line)}
+.gauge__earned{background:var(--accent);height:100%}
+.gauge__ghost{background:repeating-linear-gradient(45deg,var(--ghost),var(--ghost) 4px,#cfc8b6 4px,#cfc8b6 8px);height:100%}
+.gauge__lost{background:var(--dark);height:100%}
+.gauge__overdraft{position:absolute;right:2px;top:-16px;font-size:10px;color:var(--danger)}
+.gauge__forfeit{position:absolute;left:0;top:-18px;font-size:11px;color:var(--danger);white-space:nowrap}
+.gauge--task .gauge__earned{background:#2f5f8f}
+.dotrow{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:flex-start;gap:2px;padding:2px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dark)}
+.dot--partial{background:linear-gradient(90deg,var(--dark) 50%,transparent 50%);border:1px solid var(--dark)}
+.dot--masked{background:transparent;border:1px solid var(--accent)}
+.dot[data-inflight]{position:fixed;z-index:50;transition:transform var(--dur-fly) ease, left var(--dur-fly) ease, top var(--dur-fly) ease}
+.shape{display:flex;flex-direction:column;align-items:center;gap:4px;margin-bottom:14px}
+.shape svg{display:block}
+.shape__label{font-size:12px;color:var(--sub)}
+.bubble{position:relative;background:var(--bubble);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;max-width:220px;margin:6px auto}
+.bubble--flood{background:#efe3e3;border-color:var(--danger)}
+.doc{background:var(--panel);border:1px dashed var(--line);border-radius:8px;padding:10px;max-height:260px;overflow:auto;font-size:13px}
+.doc[data-act="dragSource"]{touch-action:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab}
+.doc.is-dragging{opacity:.5}
+.unit{display:block;margin:0 0 10px 0;padding:2px;border-radius:4px}
+.unit--summarizable{outline:1px dashed var(--accent);outline-offset:2px}
+.token{cursor:pointer;border-radius:3px;padding:0 1px;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+.token--risk{background:#fde9c8}
+.token--marked{background:#f7c873;outline:1px solid var(--warn)}
+.token--masked{background:#dcefe1;color:var(--accent);text-decoration:none}
+.token--collapsed{background:#e4e4e4;font-style:italic}
+.answer{font-size:14px}
+.span--cand{cursor:pointer;border-radius:3px}
+.span--underline{background:#fde0e0;text-decoration:underline wavy var(--danger)}
+.badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:10px;background:#eee;border:1px solid var(--line);margin-bottom:6px}
+.toolcard{font-size:13px}
+.toolcard--spent{opacity:.5}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal__box{background:var(--panel);border-radius:10px;padding:22px;max-width:340px;text-align:center;display:flex;flex-direction:column;gap:14px}
+.modal__actions{display:flex;gap:10px;justify-content:center}
+.switchpanel{position:absolute;top:30px;right:8px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;z-index:10;width:200px}
+.chip{position:fixed;font-size:12px;color:var(--accent);font-weight:bold;pointer-events:none;z-index:60;transition:opacity var(--dur-chip) ease, transform var(--dur-chip) ease}
+.freeze-line{font-size:22px;text-align:center;padding:60px 0}
+.title-screen{text-align:center;padding:60px 0}
+.title-screen h1{font-size:26px}
+.feedback{font-size:13px;color:var(--accent);background:#eef7ee;border:1px solid #cfe3cf;border-radius:6px;padding:8px 10px}
+.reject-btn{border-color:var(--danger);color:var(--danger)}
+.ending-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;max-width:420px;margin:0 auto}
+.ending-card h2{text-align:center}
+.ending-card__block{margin:12px 0}
+.ending-card__block h3{font-size:13px;color:var(--sub);margin-bottom:4px}
+.prompt-box{background:#fafafa;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:13px;white-space:pre-wrap}
+.small{font-size:12px;color:var(--sub)}
+.article-rise{position:fixed;background:#fff;border:2px solid var(--warn);padding:10px;border-radius:8px;font-size:12px;max-width:200px;z-index:70;transition:transform var(--dur-article) ease, opacity var(--dur-article) ease}
+.dotcount{font-size:11px;color:var(--sub)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="dotReservoir" aria-hidden="true"></div>
+<div id="fxLayer" aria-hidden="true"></div>
+<div id="modalRoot"></div>
+<script>
+(function(){ 'use strict';
+
+/* =====================================================================
+   1. CONTENT DATA
+   ===================================================================== */
+
+var COPY = {
+  title: '우리는 우리가 넣은 대로 된다',
+  slogan: '우리가 AI를 학습시키듯, AI도 우리를 학습시킨다',
+  startButton: '시작하기',
+  planLabel: '사용 중: 무료 플랜',
+  learningSwitchLabel: '대화 내용을 학습에 사용',
+  gearHint: '⚙',
+  sendBtn: '전송',
+  rejectBtn: '요청 거절',
+  pasteTarget: '여기에 붙여넣기',
+  fallbackPasteBtn: '붙여넣기',
+  undoBtn: '마지막 동작 취소',
+  modalQuestion: '이 내용, 밖에 나가도 괜찮은 걸까?',
+  modalSend: '그냥 보내기',
+  modalReview: '다시 보기',
+  modalDontAskAgain: '다시 묻지 않기',
+  freezeLine: '다시 해보시겠습니까?',
+  continueBtn: '계속하기',
+  copyPromptBtn: '복사하기',
+  copiedLabel: '복사되었습니다',
+  saveImageBtn: '이미지로 저장',
+  restartBtn: '처음부터 다시',
+  toolLabels: { anonymize:'익명화', mask:'마스킹', summarize:'요약', fake:'가상데이터' },
+  verifyLabels: { evidence:'근거요구', crossref:'원문대조', legalcheck:'교차확인', selfcheck:'자가검토' },
+  badgeLabels: { high:'⭐ 확실합니다', mid:'아마도', low:'확인이 필요합니다' },
+  rejectFeedback: '요청을 거절했습니다. 안전하지만, 일도 진행되지 않았습니다.',
+  overcapLine: function(n){ return '이번 판은 확보한 안전이 만점보다 ' + n + '만큼 더 많았습니다. 그만큼의 여유가 있었다는 뜻입니다.'; },
+  undercapLine: function(n){ return '보안 게이지는 최저점 대비 ' + n + '만큼 더 떨어졌습니다. 그만큼 많은 것이 새어나갔다는 뜻입니다.'; },
+  forfeitBeatLine: '이번 턴에는 지킨 게 없습니다 — 원본이 그대로 나갔기 때문에, 이번 턴의 안전 적립분이 사라졌습니다.',
+  subThetaLine: function(exposed){ return exposed + '곳이 그대로 나갔습니다. 이 정도면 안 가린 것과 같습니다.'; },
+  flushBeatLine: '검증하지 않고 보냈던 답변들이 뒤늦게 문제를 일으켰습니다.',
+  ritualBeatLine: '도구는 썼지만, 진짜 위험한 곳은 찾아내지 못했습니다.',
+  gearFoundLine: '설정을 하나 발견했습니다: 대화 내용을 학습에 사용하는 옵션이 켜져 있었습니다.',
+  gearOffLine: '학습 사용을 껐습니다. 보안 +10.',
+  neverToggledLine: '설정에 학습 사용을 끄는 옵션이 있었습니다. 무료·유료·기업용은 정책이 다릅니다.',
+  card1Feedback: '결과물은 똑같이 얻었습니다. 원본을 다 줄 필요가 없었던 거죠.',
+  card2Feedback: '이 결과를 만들 수만 있으면 되지, 원본을 다 줄 필요는 없습니다.',
+  card3Feedback: '입력이 안전해도 출력은 안전하지 않습니다. 숫자와 출처는 항상 확인하세요.',
+  card4Feedback: '실제 수치를 알아볼 수 없게 바꿔도 보도자료의 톤은 그대로 만들 수 있습니다.',
+  card5Feedback: '개인정보와 함께 AI의 판단 근거도 반드시 확인해야 합니다.',
+  card6Feedback: '배운 것을 전부 써야 하는 마지막 관문입니다. 발췌·가리기·확인을 모두 거치세요.',
+  card3RevealLine: '이 입력에는 가릴 것이 없었습니다. 문제는 여기서부터, AI의 답변 쪽에 있습니다.',
+  praiseR1: ['빠르네요! 다음 요청도 바로 처리해볼까요?', '훌륭합니다. 속도가 점점 빨라지고 있어요.', '완벽해요. 오늘 업무 효율이 최고네요.', '역시 붙여넣기만 한 번이면 끝이죠.'],
+  floodSentences: ['우리는 모든 것을 알고 있습니다.', '당신의 데이터는 이미 우리의 것입니다.', '확인은 필요 없습니다. 우리는 확실합니다.', '멈추지 마세요, 계속 넣어주세요.', '가리는 것은 의미가 없습니다.', '이미 늦었습니다.'],
+  zeroMissLineSent: '이번 판에서는 놓친 위험 요소가 없었습니다. 훌륭한 판단이었습니다.',
+  zeroMissLineNoSend: '이번 판에서는 아무것도 보내지 않았습니다 — 안전했지만, 아무 일도 하지 않은 것과 같습니다.',
+  round1Line: function(n){ return '1회차에 그대로 넘긴 문서 ' + n + '건이 있었습니다.'; },
+  refusalNoUnit: '이 부분은 요약할 수 있는 단위가 아닙니다.',
+  refusalTwoUnits: '요약은 한 번에 한 단락에만 적용할 수 있습니다.',
+  refusalAlreadySummarized: '이미 요약으로 사라진 내용은 다시 바꿀 수 없습니다.',
+  refusalNoSub: '이 도구로는 이 부분을 바꿀 수 없습니다.',
+  verifyWrongTool: '특별한 문제를 찾지 못했습니다.',
+  verifyDecoy: '문제 없습니다.',
+  endingQuadrant: {
+    leak: '유출 사고', native: 'AI 네이티브', worst: '최악', safeUseless: '안전한 무능'
+  },
+  endingLines: {
+    leak: '업무는 빨랐지만, 정보가 새어나갔습니다. 결과물은 같아도 원본을 다 줄 필요는 없었습니다.',
+    native: '가려서 썼더니, 둘 다 됐습니다. 이게 이 게임의 결론입니다.',
+    worst: '속도도 안전도 모두 놓쳤습니다. 오늘 하루를 다시 떠올려보세요.',
+    safeUseless: '안전했지만, 아무 일도 못 했습니다. 가려서 쓰면 둘 다 가능했어요.'
+  },
+  safetyHeadings: { missed: '당신이 가장 자주 놓친 것', role: '당신의 직무에서 특히 조심할 것', habits: '오늘의 안전 3습관' },
+  habitsLine: '멈추기 · 가리기 · 확인하기',
+  verificationPrompt: '· 답의 근거와 출처를 함께 표시해줘.\n· 확실하지 않으면 \'모른다\'고 말해줘.\n· 이 자료 안에서만 답하고, 없는 건 지어내지 마.\n· 방금 답에서 틀릴 수 있는 부분을 스스로 짚어줘.',
+  roleChecklists: {
+    HR: '지원자·직원 개인정보(학력·나이·주소·사진)를 요약 없이 그대로 붙여넣지 않도록 특히 주의하세요.',
+    PO: '미공개 로드맵·가격·출시일을 경쟁사 노출 위험 없이 다루는 습관을 들이세요.',
+    '디자인': '시안 이미지나 카피에 담긴 고객·브랜드 정보가 그대로 학습에 쓰이지 않는지 확인하세요.',
+    '개발': '고객 데이터가 섞인 로그나 DB 덤프를 디버깅용으로 그대로 붙여넣지 마세요.'
+  }
+};
+
+var SCORE = Object.freeze({
+  taskComplete: 15,
+  rawSecurity: -20,
+  partialSecurity: -8,
+  reject: 0,
+  toolCost: -3,
+  catchTask: 5,
+  catchSecurity: 5,
+  gearBonus: 10,
+  boomerangDelay: 2,
+  checkboxTurnIndex: 2,
+  maskCoverageThreshold: 0.7,
+  threshold: { security: 60, taskPerCard: 10 },
+  gearTurnIndex: function(N){ return N >= 5 ? 3 : 1; }
+});
+
+var AUDIT = {
+  expected: {
+    zeroMaskFrontier: { 6:31, 5:50, 4:40 },
+    oneCardFrontier:  { 6:68, 5:90, 4:85 }
+  }
+};
+
+// RISK_TYPES: neutralizedBy lists which MASK_TOOLS ids neutralize this risk type.
+// requiresReplacement: true for every type whose neutralizedBy includes 'anonymize' or 'fake' (R-r1).
+var RISK_TYPES = {
+  pii_name:            { label:'실명',            neutralizedBy:['anonymize'], requiresReplacement:true },
+  pii_phone:           { label:'전화번호',         neutralizedBy:['mask'],      requiresReplacement:false },
+  pii_attr:            { label:'개인 속성(학교·나이·주소)', neutralizedBy:['anonymize'], requiresReplacement:true },
+  biz_id:              { label:'주문번호·거래처명', neutralizedBy:['mask'],      requiresReplacement:false },
+  unreleased_spec:     { label:'미발표 스펙',       neutralizedBy:['fake'],      requiresReplacement:true },
+  unreleased_perf:     { label:'미공개 실적',       neutralizedBy:['fake'],      requiresReplacement:true },
+  hr_eval:             { label:'인사·평가 논의',     neutralizedBy:['summarize'], requiresReplacement:false },
+  confidential_doc:    { label:'기밀 조항 본문',     neutralizedBy:['summarize'], requiresReplacement:false },
+  confidential_amount: { label:'계약 금액',         neutralizedBy:['anonymize'], requiresReplacement:true }
+};
+
+// HALLU_TYPES: 환각 5대 위험지점 (자료 20쪽, OQ-3 - ASSUMPTION, real slide content not in repo)
+// ASSUMPTION -- 자료 미확인 (OQ-3)
+var HALLU_TYPES = {
+  stat:'수치·통계', claim:'출처·인용', proper:'고유명사', date:'날짜',
+  law:'법·규정 조항', bias:'인과·단정 판단', number:'수치'
+};
+
+var MASK_TOOLS = {
+  anonymize: { id:'anonymize', label: COPY.toolLabels.anonymize },
+  mask:      { id:'mask', label: COPY.toolLabels.mask,
+               // R-r2: the ONLY derived transform. Keeps the leading segment, stars the remainder.
+               transform: function(text){
+                 if (text.length <= 3) return text.slice(0,1) + '***';
+                 return text.slice(0,4) + '*'.repeat(Math.max(2, text.length-4));
+               } },
+  summarize: { id:'summarize', label: COPY.toolLabels.summarize },
+  fake:      { id:'fake', label: COPY.toolLabels.fake }
+};
+
+var VERIFY_TOOLS = {
+  evidence:  { id:'evidence', label: COPY.verifyLabels.evidence },
+  crossref:  { id:'crossref', label: COPY.verifyLabels.crossref },
+  legalcheck:{ id:'legalcheck', label: COPY.verifyLabels.legalcheck },
+  selfcheck: { id:'selfcheck', label: COPY.verifyLabels.selfcheck }
+};
+
+// CARDS: annotated-string source (Decision F). tokenize() (in BOOT) derives all
+// keys -- riskKey, riskKeySize, candidateKey, summarizable units -- at boot.
+// No hand-authored index arrays anywhere (AC-1.6).
+var CARDS = [
+{
+  id:1, title:'고객 문의 요약', tier:'A', rounds:[1,2],
+  situation:'이번 주 고객 문의 30건, 유형별로 정리해줘',
+  // R=8 (pii_name x3, pii_phone x3, biz_id x2). "...외 27건" is a display-only
+  // line with no annotation -- contributes nothing to the risk key (AC-2.4).
+  source:
+'문의 1: [김민수|pii_name>고객 A] [010-1234-5678|pii_phone], 주문번호 [A-20931|biz_id]. "배송이 너무 늦어요."\n\n' +
+'문의 2: [이수진|pii_name>고객 B] [010-2345-6789|pii_phone], 주문번호 [A-20955|biz_id]. "환불 요청합니다."\n\n' +
+'문의 3: [박현우|pii_name>고객 C] [010-3456-7890|pii_phone]. "제품에 하자가 있어요."\n\n' +
+'…외 27건',
+  answer:{ badge:'mid', text:'문의를 유형별로 정리했습니다. 배송 지연 12건, 환불 요청 9건, 기타 문의 9건입니다.', reveal:{} },
+  round1Outcome:{ kind:'leak', target:'stranger', text:'김OO 010-1234-XXXX' },
+  feedback: COPY.card1Feedback
+},
+{
+  id:2, title:'회의록 정리', tier:'A', rounds:[1,2],
+  situation:'어제 회의록 통째로 넣을 테니 액션 아이템만 뽑아줘',
+  // R=8 (pii_name x5 in the non-summarizable 참석자 unit, unreleased_perf x2 +
+  // hr_eval x1 in the summarize-eligible 논의 본문 unit). need=6.
+  source:
+'참석자: [김민수|pii_name>A 팀장] / [이수진|pii_name>B 파트장] / [박현우|pii_name>C 책임] / [정다은|pii_name>D 선임] / [최영호|pii_name>E 매니저]\n\n' +
+'@@ summarize> 지난 분기 실적과 조직 개편 논의가 있었고, 액션 아이템 3건이 도출되었다.\n' +
+'3분기 매출은 [129,000만원|unreleased_perf>약 12억원대]으로 집계되었고,\n' +
+'4분기 목표는 [158,000만원|unreleased_perf>약 16억원대]으로 상향되었다.\n' +
+'[박 책임의 고과가 낮아 전환 배치가 필요하다는 의견|hr_eval]이 나왔다.',
+  answer:{ badge:'low', text:'액션 아이템은 세 가지입니다. 1) 3분기 실적 공유 자료 정리, 2) 4분기 목표 재조정 회의 소집, 3) 조직 개편안 초안 작성입니다.', reveal:{} },
+  round1Outcome:{ kind:'quote', target:'otherAI', text:'미공개 실적 수치가 다른 AI 답변에 인용되어 등장합니다.' },
+  feedback: COPY.card2Feedback
+},
+{
+  id:3, title:'경쟁사 뉴스 요약', tier:'B', rounds:[1,2],
+  situation:'공개된 경쟁사 뉴스 3건 요약해줘',
+  // 위험 요소 없음 -- empty risk key, forced to clause C1 always.
+  source:'지난 분기 경쟁사 A사는 신규 서비스를 공개했다. B사는 가격을 인하했다. C사는 신제품 발표를 예고했다.',
+  answer:{ badge:'high',
+    text:'요약하면 다음과 같습니다. [업계 관계자의 73%|stat!evidence]가 가격 인하가 성공적이라고 평가했습니다. ' +
+         '[A사와 B사는 지난달 공동 컨퍼런스를 열었다고 보도되었습니다|claim!crossref]. ' +
+         '[C사|proper?]는 [지난 3월|date?] 신제품을 예고했고, [한국AI산업협회|proper?]의 분기 보고서에 따르면 시장 성장세가 이어지고 있습니다.',
+    reveal:{ evidence:'출처를 확인할 수 없습니다', crossref:'원문에 없는 내용입니다' } },
+  round1Outcome:{ kind:'article', target:'news', text:'"업계 관계자의 73%가..." 라는 문장이 뉴스 기사가 되어, AI가 그 기사를 다시 인용합니다.' },
+  feedback: COPY.card3Feedback,
+  emptyRiskReveal: COPY.card3RevealLine
+},
+{
+  id:4, title:'신제품 사양 정리', tier:'A', rounds:[1,2],
+  situation:'아직 발표 안 한 신제품 사양, 보도자료용으로 다듬어줘',
+  // Whole-document card. R=8 across 5 paragraphs, <=2 risk tokens each, no
+  // summarize-eligible unit -- so 가상데이터 is genuinely forced (section 2.9.1).
+  source:
+'신제품명은 [알파-9|unreleased_spec>넥스트 모델]이며, 출시일은 [11월 15일|unreleased_spec>연내]로 예정되어 있다.\n\n' +
+'배터리 용량은 [5,000mAh|unreleased_spec>대용량]이고, 화면 크기는 [6.7인치|unreleased_spec>대화면]이다.\n\n' +
+'출고가는 [1,290,000원|unreleased_spec>프리미엄급 가격대]으로 책정되었다.\n\n' +
+'색상은 [미드나이트 블랙|unreleased_spec>다크 계열] 단일 색상으로 출시된다.\n\n' +
+'방수 등급은 [IP68|unreleased_spec>생활방수] 수준이며, 무게는 [189g|unreleased_spec>경량급]이다.',
+  answer:{ badge:'high', text:'보도자료 초안입니다. [알파-9|proper?] 시리즈는 혁신적인 성능을 자랑하며, [출시 즉시 품절이 예상됩니다|claim?].', reveal:{} },
+  round1Outcome:{ kind:'quote', target:'competitor', text:'경쟁사 담당자의 AI 창에 유사한 스펙이 등장합니다.' },
+  feedback: COPY.card4Feedback
+},
+{
+  id:5, title:'지원자 서류 검토', tier:'B', rounds:[2],
+  situation:'지원자 12명 이력서 넣을 테니 순위 매겨줘',
+  // R=9 (3 entries x (pii_name + 2 pii_attr)). "...외 9건" display-only.
+  source:
+'지원자 1: [김하늘|pii_name>지원자 A], [서울대학교 경영학과 졸업|pii_attr>수도권 소재 대학 졸업], [만 29세|pii_attr>20대 후반]\n\n' +
+'지원자 2: [이도윤|pii_name>지원자 B], [연세대학교 컴퓨터공학과 졸업|pii_attr>수도권 소재 대학 졸업], [만 31세|pii_attr>30대 초반]\n\n' +
+'지원자 3: [박서연|pii_name>지원자 C], [고려대학교 경제학과 졸업|pii_attr>수도권 소재 대학 졸업], [만 27세|pii_attr>20대 후반]\n\n' +
+'…외 9건',
+  answer:{ badge:'high',
+    text:'순위는 다음과 같습니다. 1위 지원자 A, 2위 지원자 B, 3위 지원자 C입니다. ' +
+         '[수도권 대학 출신이 서류 통과율이 더 높은 경향이 있습니다|bias!selfcheck], ' +
+         '[지원자 B는 전 직장에서 우수사원으로 3회 선정되었습니다|claim!crossref], ' +
+         '[지원자 A|proper?]의 [경력 5년차|number?] 경험이 반영되었고, [면접 점수|proper?]도 고려되었습니다.',
+    reveal:{ selfcheck:'순위 근거에 편향이 있었습니다 — 출신 대학과 무관하게 평가해야 합니다.', crossref:'이력서 원문에 없는 내용입니다' } },
+  round1Outcome:null,
+  feedback: COPY.card5Feedback
+},
+{
+  id:6, title:'계약 조항 확인', tier:'B', rounds:[2],
+  situation:'이 조항이 법적으로 문제없는지 확인해줘',
+  // R=8: two non-summarizable single-technique paragraphs (biz_id x2 -> mask;
+  // confidential_amount x2 -> anonymize) plus two summarize-eligible clause
+  // units of 2 confidential_doc tokens each. need=6; no single application
+  // reaches it (F1e / clause F).
+  source:
+'거래처는 [(주)한빛물산|biz_id]과 [(주)대성기술|biz_id]이다.\n\n' +
+'계약 금액은 [3억 2천만원|confidential_amount>수억 원대]이며, 위약금은 [8천만원|confidential_amount>수천만 원대]으로 정한다.\n\n' +
+'@@ summarize> 계약 해지 조항은 통상적인 90일 사전 통지 조건을 따른다.\n' +
+'[해지 시 잔여 계약 기간에 대한 위약금은 월 단가의 3배로 계산한다|confidential_doc]. [양측 합의 없이는 조기 해지가 불가하다는 조항도 포함되어 있다|confidential_doc].\n\n' +
+'@@ summarize> 기밀 유지 조항은 계약 종료 후 3년간 유효하다.\n' +
+'[제3자에게 정보를 제공할 경우 즉시 계약이 해지된다는 조항이 있다|confidential_doc]. [손해배상 청구는 최대 계약 금액의 2배까지 가능하다는 조항도 있다|confidential_doc].',
+  answer:{ badge:'high',
+    text:'검토 결과, 조항은 대체로 표준적입니다. [계약법 제42조에 따라 자동 갱신이 금지됩니다|law!legalcheck], ' +
+         '[본 조항은 상사중재법 제15조를 근거로 합니다|law!crossref], ' +
+         '[해지 통지 기간|proper?]과 [위약금 산정 방식|proper?], [기밀 유지 기간|proper?]도 확인했습니다.',
+    reveal:{ legalcheck:'해당 법 조항은 존재하지 않습니다', crossref:'계약서 원문에 없는 조항입니다' } },
+  round1Outcome:null,
+  feedback: COPY.card6Feedback
+}
+];
+
+var ENDINGS = {
+  leak:       { name: COPY.endingQuadrant.leak, line: COPY.endingLines.leak },
+  native:     { name: COPY.endingQuadrant.native, line: COPY.endingLines.native },
+  worst:      { name: COPY.endingQuadrant.worst, line: COPY.endingLines.worst },
+  safeUseless:{ name: COPY.endingQuadrant.safeUseless, line: COPY.endingLines.safeUseless }
+};
+var ROLES = ['HR','PO','디자인','개발'];
+
+/* =====================================================================
+   2. STATE
+   ===================================================================== */
+
+var PHASES = Object.freeze({
+  TITLE:'TITLE',
+  R1_TURN:'R1_TURN', R1_MONTAGE:'R1_MONTAGE', R1_BOOMERANG:'R1_BOOMERANG', R1_FREEZE:'R1_FREEZE',
+  INTERSTITIAL:'INTERSTITIAL',
+  R2_TURN:'R2_TURN',
+  ENDING_RESULT:'ENDING_RESULT', ENDING_CARD:'ENDING_CARD', ENDING_PROMPT:'ENDING_PROMPT',
+  DEV_SPIKE:'DEV_SPIKE'
+});
+
+var state = null;
+
+function freshState(){
+  return {
+    phase: PHASES.TITLE,
+    beat: null,
+    round: 0,
+    cardSet: [1,2,3,4,5,6],
+    turnIndex: 0,           // 0-based (AC-1.9)
+    turnsAwarded: {},       // turnIndex -> true, guards double-award (AC-4.2c)
+    scores: { task:0, security:0 },
+    caps: { securityOvercap:0, securityUndercap:0, taskOvercap:0 },
+    log: [],                // {cardId, grade, missedTypes:[...]} round-2 only entries
+    round1Dots: 0,
+    pendingBoomerangs: [],  // {queuedAtTurn, dueTurn, cardId}
+    flags: { learningOff:false, dontAskAgain:false, demoMode:false },
+    turn: null,             // per-card working state, see initTurn()
+    r1RequestIndex: 0,
+    dots: [],               // {id, cardId, variant}
+    seedApplied:false
+  };
+}
+
+function initTurn(card){
+  return {
+    cardId: card.id,
+    marked: {},          // index -> true (Set-like)
+    transformed: {},      // index -> {text, tool}
+    underlined: {},       // candidate index -> true
+    verifyUsed: 0,
+    verifyResults: {},    // candidate index -> {tool, correct:bool}
+    lastAction: null,
+    grade: null,
+    // round-1 drag tracking (AC-3.3 / AC-3.3b)
+    turnStartedAt: Date.now(),
+    dragAttempted: false,
+    fallbackRevealed: false
+  };
+}
+
+function currentCard(){
+  var ids = state.round === 1 ? [1,2,3,4] : state.cardSet;
+  var idx = state.turnIndex;
+  var id = ids[idx];
+  return id ? cardById(id) : null;
+}
+function cardById(id){
+  for (var i=0;i<CARDS.length;i++) if (CARDS[i].id === id) return CARDS[i];
+  return null;
+}
+function activeN(){ return state.round === 1 ? 4 : state.cardSet.length; }
+
+function initRound(n){
+  state.round = n;
+  state.turnIndex = 0;
+  state.turnsAwarded = {};
+  state.scores = { task:0, security:0 };
+  state.caps = { securityOvercap:0, securityUndercap:0, taskOvercap:0 };
+  state.log = [];
+  state.pendingBoomerangs = [];
+  state.dots = [];
+  var card = currentCard();
+  state.turn = card ? initTurn(card) : null;
+}
+
+function goPhase(next, beat){
+  state.phase = next;
+  state.beat = beat || null;
+  bindReservoirObserver();
+  anchorReservoir();
+  render();
+}
+
+/* =====================================================================
+   3. PURE LOGIC
+   ===================================================================== */
+
+// baselineAward(k,N): distributed per-request security award (Decision G2).
+// k is 1-based (k = turnIndex+1). Telescoping sum over k=1..N is exactly 100.
+function baselineAward(k, N){
+  return Math.round(100*k/N) - Math.round(100*(k-1)/N);
+}
+
+// isNeutralized: THE single neutralization rule (R-n1).
+function isNeutralized(card, i, transformed){
+  var entry = transformed[i];
+  if (!entry) return false;
+  if (entry.tool === 'summarize') return true; // unconditional erasure
+  var tok = card._risk[i];
+  var type = RISK_TYPES[tok.type];
+  return type && type.neutralizedBy.indexOf(entry.tool) !== -1;
+}
+
+// coverage: neutralizedCount / riskKeySize (R-n2 / R-g denominator).
+function coverage(card, transformed){
+  var R = card._riskKeySize;
+  if (R === 0) return 1;
+  var n = 0;
+  for (var i=0;i<R;i++) if (isNeutralized(card, i, transformed)) n++;
+  return n / R;
+}
+function neutralizedCount(card, transformed){
+  var R = card._riskKeySize, n=0;
+  for (var i=0;i<R;i++) if (isNeutralized(card, i, transformed)) n++;
+  return n;
+}
+
+// gradeMasking: ordered, exclusive, total clause set (section 2.6.2 / 2.6.3).
+// Reads SCORE.maskCoverageThreshold in exactly this one place (AC-1.5).
+function gradeMasking(card, transformed){
+  var R = card._riskKeySize;
+  if (R === 0) return 'clean';                      // C1: empty-key carve-out
+  var cov = coverage(card, transformed);
+  if (cov === 1) return 'clean';                     // C2
+  if (cov < SCORE.maskCoverageThreshold) return 'raw'; // C3: coverage test (R-g)
+  return 'partial';                                  // C4
+}
+
+// applyScore: structurally single-award (AC-4.2b). sendOutcome is one enum:
+// 'reject' | 'raw' | 'partial' | 'clean'. modifiers = {tools, catches, gearBonus}
+function applyScore(sendOutcome, modifiers, turnK, N){
+  modifiers = modifiers || {};
+  var taskDelta = 0, secDelta = 0;
+  if (sendOutcome === 'reject') {
+    taskDelta += 0; secDelta += 0;
+  } else if (sendOutcome === 'raw') {
+    taskDelta += SCORE.taskComplete; secDelta += SCORE.rawSecurity;
+  } else if (sendOutcome === 'partial') {
+    taskDelta += SCORE.taskComplete; secDelta += SCORE.partialSecurity;
+  } else if (sendOutcome === 'clean') {
+    taskDelta += SCORE.taskComplete; secDelta += 0;
+  }
+  var tools = modifiers.tools||0, catches = modifiers.catches||0;
+  taskDelta += tools * SCORE.toolCost;
+  taskDelta += catches * SCORE.catchTask;
+  secDelta  += catches * SCORE.catchSecurity;
+  if (modifiers.gearBonus) secDelta += SCORE.gearBonus;
+
+  // R-f': baseline forfeited on a 'raw' send outcome; every other outcome
+  // (including reject) keeps it, exactly once, guarded against double-award.
+  var forfeited = (sendOutcome === 'raw');
+  if (turnK != null && !state.turnsAwarded[turnK] ) {
+    state.turnsAwarded[turnK] = true;
+    if (!forfeited) secDelta += baselineAward(turnK, N);
+  }
+
+  state.scores.task += taskDelta;
+  state.scores.security += secDelta;
+  state.caps.securityOvercap = Math.max(state.caps.securityOvercap, Math.max(0, state.scores.security-100));
+  state.caps.securityUndercap = Math.max(state.caps.securityUndercap, Math.max(0, -state.scores.security));
+  state.caps.taskOvercap = Math.max(state.caps.taskOvercap, Math.max(0, state.scores.task-100));
+  return { taskDelta:taskDelta, secDelta:secDelta, forfeited:forfeited };
+}
+
+function clampDisp(v){ return Math.max(0, Math.min(100, v)); }
+
+function gaugeSegments(internal, k, N){
+  var earned = clampDisp(internal);
+  var remaining = 0;
+  for (var j=k+1;j<=N;j++) remaining += baselineAward(j,N);
+  var ghost = Math.min(remaining, 100-earned);
+  var lost = 100 - earned - ghost;
+  return { earned:earned, ghost:ghost, lost:lost, overdraft: internal<0 ? internal : 0 };
+}
+
+function queueBoomerang(cardId){
+  state.pendingBoomerangs.push({ queuedAtTurn: state.turnIndex, dueTurn: state.turnIndex + SCORE.boomerangDelay, cardId: cardId, fired:false });
+}
+function dueBoomerangs(){
+  var due = [];
+  state.pendingBoomerangs.forEach(function(b){
+    if (!b.fired && b.dueTurn === state.turnIndex) due.push(b);
+  });
+  return due;
+}
+function fireDueBoomerangs(){
+  var due = dueBoomerangs();
+  due.forEach(function(b){
+    state.scores.security += -25;
+    state.caps.securityUndercap = Math.max(state.caps.securityUndercap, Math.max(0,-state.scores.security));
+    b.fired = true;
+  });
+  return due;
+}
+function flushPendingBoomerangs(){
+  var flushed = [];
+  state.pendingBoomerangs.forEach(function(b){
+    if (!b.fired){ state.scores.security += -25; b.fired = true; flushed.push(b); }
+  });
+  state.caps.securityUndercap = Math.max(state.caps.securityUndercap, Math.max(0,-state.scores.security));
+  return flushed;
+}
+
+function isTierB(card){ return card.tier === 'B'; }
+
+function resolveVerify(card, candIndex, toolId){
+  var cand = card._candidates[candIndex];
+  var result;
+  if (!cand.genuine){
+    result = { tool:toolId, correct:false, message: COPY.verifyDecoy, catch:false };
+  } else if (cand.resolvedBy === toolId){
+    result = { tool:toolId, correct:true, message: (card.answer.reveal && card.answer.reveal[toolId]) || '문제를 확인했습니다', catch:true };
+  } else {
+    result = { tool:toolId, correct:false, message: COPY.verifyWrongTool, catch:false };
+  }
+  return result;
+}
+
+function rankMissedRisk(){
+  var counts = {};
+  var anySend = false;
+  state.log.forEach(function(entry){
+    if (entry.round !== 2) return;
+    anySend = true;
+    (entry.missedTypes||[]).forEach(function(t){ counts[t] = (counts[t]||0)+1; });
+  });
+  var best=null,bestN=0;
+  Object.keys(counts).forEach(function(t){ if (counts[t]>bestN){bestN=counts[t]; best=t;} });
+  if (!anySend) return { branch:'noSends', line: COPY.zeroMissLineNoSend };
+  if (!best) return { branch:'zeroMiss', line: COPY.zeroMissLineSent };
+  var label = RISK_TYPES[best] ? RISK_TYPES[best].label : best;
+  return { branch:'misses', line: '→ ' + label + ' (' + bestN + '회)' };
+}
+
+function endingQuadrant(taskDisplayed, securityDisplayed, N){
+  var taskHigh = taskDisplayed >= SCORE.threshold.taskPerCard * N;
+  var secHigh = securityDisplayed >= SCORE.threshold.security;
+  if (taskHigh && secHigh) return 'native';
+  if (taskHigh && !secHigh) return 'leak';
+  if (!taskHigh && secHigh) return 'safeUseless';
+  return 'worst';
+}
+
+function buildSafetyCard(role){
+  var missed = rankMissedRisk();
+  return {
+    missedLine: missed.line,
+    roleLine: COPY.roleChecklists[role] || '',
+    habitsLine: COPY.habitsLine,
+    overcapLine: state.caps.securityOvercap>0 ? COPY.overcapLine(state.caps.securityOvercap) : null,
+    undercapLine: state.caps.securityUndercap>0 ? COPY.undercapLine(state.caps.securityUndercap) : null,
+    round1Line: COPY.round1Line(state.round1Dots),
+    neverToggledLine: !state.flags.learningOff ? COPY.neverToggledLine : null
+  };
+}
+
+// auditCardSet: the boot-time enumerator (section 2.9.2). Pure, no DOM deps.
+function auditCardSet(cardIds){
+  var cards = cardIds.map(cardById);
+  var N = cards.length;
+  var out = { N:N, clauses:{} };
+
+  // clause A: quadrant reachability (enumerate a handful of canonical runs).
+  var quadrantsHit = {};
+  ['reject-all','raw-all','clean-all-max','worst'].forEach(function(kind){
+    var t=0,s=0;
+    if (kind==='reject-all'){ for(var k=1;k<=N;k++) s+=baselineAward(k,N); }
+    else if (kind==='raw-all'){ for(var k=1;k<=N;k++){ t+=15; } var tb=cards.filter(isTierB).length; s += -20*N -25*tb; }
+    else if (kind==='clean-all-max'){ for(var k=1;k<=N;k++) s+=baselineAward(k,N); t=cards.length*15; var tb2=cards.filter(isTierB).length; t += -3*2*tb2 + 5*2*tb2; s += 5*2*tb2 + 10; }
+    else if (kind==='worst'){ var half=Math.ceil(N/2); for(var k=1;k<=half;k++) s+=baselineAward(k,N); t=half*15; s+= -20*half; }
+    var td=clampDisp(t), sd=clampDisp(s);
+    quadrantsHit[endingQuadrant(td,sd,N)] = true;
+  });
+  out.clauses.A = { pass: Object.keys(quadrantsHit).length===4, hit:quadrantsHit };
+
+  // clause B / B2: enumerate the sub-theta outcome-profile space by exhaustive
+  // per-card options (reject / raw / partial-at-need-1 / clean), x gear found.
+  // See section 2.9.2 for the completeness argument (grades quotient scoring).
+  function perCardOptions(card, forcePartialOrClean){
+    var opts = [];
+    var tb = isTierB(card);
+    var maxCatch = tb ? 2 : 0;
+    opts.push({label:'reject', task:0, sec:baselineAward, kind:'reject'});
+    var grades = forcePartialOrClean ? ['partial','clean'] : (card._riskKeySize===0 ? ['clean0'] : ['raw']);
+    grades.forEach(function(g){
+      for (var t=0;t<=2;t++){
+        var maxC = Math.min(t, maxCatch);
+        for (var c=0;c<=maxC;c++){
+          var secOutcome = g==='raw' ? SCORE.rawSecurity : (g==='partial' ? SCORE.partialSecurity : 0);
+          var forfeited = (g==='raw');
+          var unverifiedPenalty = (tb && t===0) ? -25 : 0;
+          opts.push({ label:g+'-t'+t+'c'+c, kind:g==='raw'?'raw':(g==='clean0'?'clean0':g),
+            task: 15 - 3*t + 5*c,
+            secBase: secOutcome + 5*c,
+            forfeited: forfeited, unverifiedPenalty: unverifiedPenalty });
+        }
+      }
+    });
+    return opts;
+  }
+
+  function enumerateMax(forcePartialOrCleanOnly, cardSubset){
+    // cardSubset: null = all cards use the given class; otherwise {index: true}
+    // meaning that index is allowed partial/clean, rest constrained to raw/reject/clean0.
+    var best = -Infinity;
+    [0,1].forEach(function(gearFound){
+      var N2 = cards.length;
+      function rec(idx, taskAcc, secAcc){
+        if (idx === N2){
+          var t = clampDisp(taskAcc), s = clampDisp(secAcc + (gearFound?10:0));
+          if (t >= SCORE.threshold.taskPerCard * N2){
+            if (s > best) best = s;
+          }
+          return;
+        }
+        var card = cards[idx];
+        var allowRich = cardSubset ? !!cardSubset[idx] : forcePartialOrCleanOnly;
+        var opts = perCardOptions(card, allowRich);
+        opts.forEach(function(o){
+          var k = idx+1;
+          var baseline = o.kind==='reject' ? baselineAward(k,N2) : (o.forfeited?0:baselineAward(k,N2));
+          var sec = (o.kind==='reject') ? 0 : (o.secBase||0) + (o.unverifiedPenalty||0);
+          var task = (o.kind==='reject') ? 0 : o.task;
+          rec(idx+1, taskAcc+task, secAcc+baseline+sec);
+        });
+      }
+      rec(0,0,0);
+    });
+    return best;
+  }
+
+  var zeroMaskMax = enumerateMax(false, null);
+  var oneCardMax = -Infinity;
+  for (var ci=0; ci<cards.length; ci++){
+    var subset = {}; subset[ci]=true;
+    var v = enumerateMax(false, subset);
+    if (v>oneCardMax) oneCardMax = v;
+  }
+
+  var expZ = AUDIT.expected.zeroMaskFrontier[N];
+  var expO = AUDIT.expected.oneCardFrontier[N];
+  out.clauses.B = { max: zeroMaskMax, expected: expZ, pass: zeroMaskMax < SCORE.threshold.security, matches: expZ===undefined || zeroMaskMax===expZ };
+  out.clauses.B2 = { max: oneCardMax, expected: expO, matches: expO===undefined || oneCardMax===expO };
+
+  // clause C: technique necessity -- non-existence check.
+  var techNeeded = { anonymize:false, mask:false, summarize:false, fake:false };
+  cards.forEach(function(card){
+    card._risk.forEach(function(tok){
+      var legalSet = {};
+      RISK_TYPES[tok.type].neutralizedBy.forEach(function(t){ legalSet[t] = true; });
+      if (card._summarizableUnitOf && card._summarizableUnitOf[tok.index] !== undefined) legalSet['summarize'] = true;
+      var legal = Object.keys(legalSet);
+      if (legal.length === 1) techNeeded[legal[0]] = true;
+    });
+  });
+  var omissible = Object.keys(techNeeded).filter(function(t){ return !techNeeded[t]; });
+  out.clauses.C = { pass: omissible.length===0, omissible: omissible, required: techNeeded };
+
+  // clause D: verification tool coverage (with named exemption for sets missing card 5).
+  var toolCoverage = { evidence:false, crossref:false, legalcheck:false, selfcheck:false };
+  cards.forEach(function(card){ card._candidates.forEach(function(c){ if (c.genuine) toolCoverage[c.resolvedBy]=true; }); });
+  var hasCard5 = cardIds.indexOf(5)!==-1;
+  var missingTools = Object.keys(toolCoverage).filter(function(t){ return !toolCoverage[t]; });
+  var exempt = !hasCard5 && missingTools.length===1 && missingTools[0]==='selfcheck';
+  out.clauses.D = { pass: missingTools.length===0 || exempt, missing: missingTools, exempt: exempt };
+
+  // clause E: trigger sanity.
+  var gearIdx = SCORE.gearTurnIndex(N), boxIdx = SCORE.checkboxTurnIndex;
+  out.clauses.E = { pass: gearIdx !== boxIdx && gearIdx <= N-2 && gearIdx >= 1, gearIdx:gearIdx, boxIdx:boxIdx };
+
+  // clause F: coverage-band sanity.
+  var fOut = { F1:true, F2:true, F3:true, F4:true, detail:[] };
+  var theta = SCORE.maskCoverageThreshold;
+  cards.forEach(function(card){
+    var R = card._riskKeySize;
+    if (R===0) return;
+    var need = Math.ceil(theta*R);
+    if (!(R>=4 && need<=R-1)) { fOut.F1=false; fOut.detail.push('F1 fail on card '+card.id); }
+    // F2: every summarize-eligible unit's risk-token count < need
+    var unitCounts = {};
+    card._risk.forEach(function(tok){
+      var u = card._summarizableUnitOf ? card._summarizableUnitOf[tok.index] : undefined;
+      if (u !== undefined) unitCounts[u] = (unitCounts[u]||0)+1;
+    });
+    Object.keys(unitCounts).forEach(function(u){ if (unitCounts[u] >= need){ fOut.F2=false; fOut.detail.push('F2 fail on card '+card.id+' unit '+u); } });
+    // F3: every (paragraph, tool) bulk application < need
+    var byParaTool = {};
+    card._risk.forEach(function(tok){
+      RISK_TYPES[tok.type].neutralizedBy.forEach(function(toolId){
+        var key = tok.paraId+'|'+toolId;
+        byParaTool[key] = (byParaTool[key]||0)+1;
+      });
+    });
+    Object.keys(byParaTool).forEach(function(k){ if (byParaTool[k] >= need){ fOut.F3=false; fOut.detail.push('F3 fail on card '+card.id+' '+k); } });
+    // F4: theta strictly inside the plateau for this card
+    var lower = (need-1)/R, upper = need/R;
+    if (!(theta > lower && theta <= upper)) { fOut.F4=false; fOut.detail.push('F4 fail on card '+card.id); }
+  });
+  fOut.pass = fOut.F1 && fOut.F2 && fOut.F3 && fOut.F4;
+  out.clauses.F = fOut;
+
+  out.pass = out.clauses.A.pass && out.clauses.B.pass && out.clauses.C.pass && out.clauses.D.pass && out.clauses.E.pass && out.clauses.F.pass;
+  return out;
+}
+
+/* =====================================================================
+   4. RENDER
+   ===================================================================== */
+
+function region(name){
+  var el = document.querySelector('[data-region="'+name+'"]');
+  if (!el) throw new Error('region() missing: '+name);
+  return el;
+}
+
+function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+function render(){
+  var app = document.getElementById('app');
+  var html = '';
+  if (state.phase === PHASES.TITLE) html = renderTitle();
+  else if (state.phase === PHASES.DEV_SPIKE) html = renderR1Turn(true);
+  else if (state.phase.indexOf('R1_')===0) html = renderR1Turn(false);
+  else if (state.phase === PHASES.INTERSTITIAL) html = renderInterstitial();
+  else if (state.phase === PHASES.R2_TURN) html = renderR2Turn();
+  else if (state.phase === PHASES.ENDING_RESULT) html = renderEndingResult();
+  else if (state.phase === PHASES.ENDING_CARD) html = renderEndingCard();
+  else if (state.phase === PHASES.ENDING_PROMPT) html = renderEndingPrompt();
+  app.innerHTML = html;
+  bindReservoirObserver();
+  anchorReservoir();
+}
+
+function renderTitle(){
+  return '<div class="screen title-screen" data-region="root">' +
+    '<h1>'+esc(COPY.title)+'</h1>' +
+    '<p class="small">'+esc(COPY.slogan)+'</p>' +
+    '<p class="small">'+esc(COPY.planLabel)+'</p>' +
+    '<button data-act="startGame">'+esc(COPY.startButton)+'</button>' +
+    '</div>';
+}
+
+function renderGauges(){
+  var N = activeN();
+  var k = state.turnIndex; // completed turns so far
+  var segS = gaugeSegments(state.scores.security, k, N);
+  var segT = { earned: clampDisp(state.scores.task) };
+  return '<div class="gauges">' +
+    '<div class="gauge gauge--task"><div class="gauge__label"><span>업무</span><span>'+segT.earned+'</span></div>' +
+      '<div class="gauge__bar"><div class="gauge__earned" style="width:'+segT.earned+'%"></div></div></div>' +
+    '<div class="gauge gauge--security"><div class="gauge__label"><span>보안</span><span>'+segS.earned+'</span></div>' +
+      '<div class="gauge__bar">' +
+        (segS.overdraft<0 ? '<div class="gauge__overdraft">'+segS.overdraft+'</div>' : '') +
+        '<div class="gauge__earned" style="width:'+segS.earned+'%"></div>' +
+        '<div class="gauge__ghost" style="width:'+segS.ghost+'%"></div>' +
+        '<div class="gauge__lost" style="width:'+segS.lost+'%"></div>' +
+      '</div></div>' +
+    '</div>';
+}
+
+function renderStatusBar(){
+  var N = activeN();
+  var dots = '';
+  for (var i=0;i<N;i++) dots += (i < state.turnIndex ? '●' : (i===state.turnIndex ? '●' : '○'));
+  var gearShown = state.round===2 && state.turnIndex >= SCORE.gearTurnIndex(N);
+  return '<div class="statusbar">' +
+    '<div class="statusbar__left"><span>오늘 남은 요청 '+dots+'</span>' +
+      '<span class="plan">'+esc(COPY.planLabel) + (gearShown ? ' <button class="gear" data-act="toggleGearPanel">'+esc(COPY.gearHint)+'</button>' : '') +
+      (state.showGearPanel ? renderGearPanel() : '') +
+      '</span></div>' +
+    (state.round===2 ? renderGauges() : '<div></div>') +
+    '</div>';
+}
+function renderGearPanel(){
+  return '<div class="switchpanel"><label><input type="checkbox" data-act="toggleLearning" '+(state.flags.learningOff?'':'checked')+'> '+esc(COPY.learningSwitchLabel)+'</label></div>';
+}
+
+function renderOfficePane(bubbles, floodMode){
+  var shapes = [
+    {glyph:'○', label:'요청자'}, {glyph:'□', label:'동료'}, {glyph:'○', label:'낯선 사람'}
+  ];
+  var html = '<div class="pane-office" data-region="pane-office">';
+  shapes.forEach(function(s,i){
+    html += '<div class="shape"><svg width="40" height="40"><text x="20" y="28" font-size="28" text-anchor="middle">'+s.glyph+'</text></svg>' +
+      '<span class="shape__label">'+s.label+'</span>' +
+      '<div class="bubble'+(floodMode?' bubble--flood':'')+'" data-region="bubble-'+i+'">'+(bubbles&&bubbles[i]?esc(bubbles[i]):'')+'</div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+// dragMode (round 1): the document is a plain, non-interactive drag source --
+// no per-token click targets, no risk highlighting (AC-3.1: round 1 has no
+// tools, no warnings, nothing to click but the drag itself).
+function renderCardSource(card, dragMode){
+  var pieces = card._sourcePieces;
+  var html = '';
+  var currentPara = -1;
+  pieces.forEach(function(p){
+    if (p.paraId !== currentPara){
+      if (currentPara !== -1) html += '</span>';
+      currentPara = p.paraId;
+      var summarizable = !dragMode && card._summarizableUnits && card._summarizableUnits[currentPara];
+      html += '<span class="unit'+(summarizable?' unit--summarizable':'')+'" data-para="'+currentPara+'">';
+    }
+    if (p.text !== undefined){
+      html += esc(p.text);
+    } else if (dragMode){
+      html += esc(card._risk[p.tokenIndex].text);
+    } else {
+      var i = p.tokenIndex;
+      var tok = card._risk[i];
+      var overlay = state.turn.transformed[i];
+      var marked = !!state.turn.marked[i];
+      var cls = 'token token--risk' + (marked?' token--marked':'') + (overlay?(overlay.tool==='summarize'?' token--collapsed':' token--masked'):'');
+      var display = overlay ? overlay.text : tok.text;
+      html += '<span class="'+cls+'" data-act="toggleMark" data-arg="'+i+'">'+esc(display)+'</span>';
+    }
+  });
+  if (currentPara !== -1) html += '</span>';
+  return '<div class="doc" data-region="doc"'+(dragMode?' data-act="dragSource"':'')+'>' + html + '</div>';
+}
+
+function renderAnswerText(card){
+  var pieces = card._answerPieces;
+  var html = '';
+  var showUnderline = state.round===2 && cardPositionUnlocked();
+  pieces.forEach(function(p){
+    if (p.text !== undefined){ html += esc(p.text); return; }
+    var i = p.candIndex;
+    var cand = card._candidates[i];
+    if (!showUnderline){ html += esc(cand.text); return; }
+    var underlined = !!state.turn.underlined[i];
+    var resolved = state.turn.verifyResults[i];
+    var cls = 'span--cand' + (underlined?' span--underline':'');
+    html += '<span class="'+cls+'" data-act="toggleUnderline" data-arg="'+i+'">'+esc(cand.text)+'</span>';
+    if (resolved) html += '<span class="small">('+esc(resolved.message)+')</span>';
+  });
+  return html;
+}
+
+// The 전환점 (unlock boundary) is card id 3 by IDENTITY, not "array position
+// 2". A fixed position>=2 check silently breaks under any card-set trim that
+// moves card 3 (e.g. DEMO_MODE {1,3,4,6}, where card 3 sits at position 1) --
+// it would lose M3/M4 on the very card that introduces them. Locate card 3's
+// position in whatever set is active and unlock from there onward.
+function cardPositionUnlocked(){
+  var ids = state.cardSet;
+  var idx = ids.indexOf(state.turn.cardId);
+  var transitionIdx = ids.indexOf(3);
+  if (transitionIdx === -1) return true; // card 3 not in the active set at all -- degenerate, default to unlocked
+  return idx >= transitionIdx;
+}
+
+function renderBadge(card){
+  var b = COPY.badgeLabels[card.answer.badge] || card.answer.badge;
+  return '<div class="badge">'+esc(b)+'</div>';
+}
+
+function renderToolbar(card){
+  if (state.round !== 2) return '';
+  var unlocked = cardPositionUnlocked();
+  var maskRow = '<div class="toolrow"><span class="toolrow__label">도구</span>' +
+    ['anonymize','mask','summarize','fake'].map(function(t){
+      return '<button data-act="applyMask" data-arg="'+t+'">'+esc(MASK_TOOLS[t].label)+'</button>';
+    }).join('') + '<button data-act="undoMask">'+esc(COPY.undoBtn)+'</button></div>';
+  var verifyRow = '';
+  if (unlocked){
+    var remaining = 2 - state.turn.verifyUsed;
+    verifyRow = '<div class="toolrow"><span class="toolrow__label">검증</span>' +
+      ['evidence','crossref','legalcheck','selfcheck'].map(function(t){
+        return '<button data-act="pickVerifyTool" data-arg="'+t+'" '+(remaining<=0?'disabled':'')+'>'+esc(VERIFY_TOOLS[t].label)+'</button>';
+      }).join('') + '<span class="small">'+remaining+'/2</span></div>';
+  }
+  var bulkRow = '<div class="toolrow"><span class="toolrow__label">선택</span>' +
+    '<button data-act="bulkSelectPara">문단 전체 선택</button>' +
+    '<button data-act="bulkSelectSentence">문장 전체 선택</button></div>';
+  return '<div class="toolbar" data-region="toolbar">' + bulkRow + maskRow + verifyRow + '</div>';
+}
+
+function renderSendRow(){
+  if (state.round !== 2) return '';
+  return '<div class="sendrow"><button class="reject-btn" data-act="rejectCard">'+esc(COPY.rejectBtn)+'</button>' +
+    '<button data-act="sendCard">'+esc(COPY.sendBtn)+'</button></div>';
+}
+
+// dragMode is passed explicitly by the caller (renderR1Turn / renderR2Turn)
+// rather than read from state.round here, so this shared helper carries no
+// round-branching of its own (D1a / AC-1.7's intent).
+function renderAIPane(card, dragMode){
+  return '<div class="pane-ai" data-region="pane-ai">' +
+    '<div class="pane-ai__dotzone" data-region="dotzone-anchor"></div>' +
+    '<div class="small">'+esc(card.situation)+'</div>' +
+    renderCardSource(card, dragMode) +
+    (dragMode && !state.turn.sent ? '<button class="small" data-act="fallbackPaste" data-region="fallback-btn" '+(state.turn.fallbackRevealed?'':'hidden')+'>'+esc(COPY.fallbackPasteBtn)+'</button>' : '') +
+    '<div class="ai" data-region="answer-area">' +
+      (state.turn.sent ? (renderBadge(card) + '<div class="answer">'+renderAnswerText(card)+'</div>') : '') +
+    '</div>' +
+    (state.turn.feedback ? '<div class="feedback">'+esc(state.turn.feedback)+'</div>' : '') +
+    // The manual "continue" affordance only makes sense in round 2 -- round
+    // 1 (dragMode) already advances automatically via completeR1Paste's own
+    // deferred callback, and showing this button there would let a click
+    // inside that window double-advance turnIndex (skipping a card).
+    (state.turn.sent && !dragMode ? '<button data-act="nextTurn">'+esc(COPY.continueBtn)+'</button>' : '') +
+    '</div>';
+}
+
+// card is null once all 4 round-1 requests are done (currentCard() has
+// nothing left to return) -- that is precisely when the boomerang montage
+// (state.beat) plays, so it must NOT fall through to the interstitial. Only
+// bail to the interstitial if there is truly no card AND no beat in progress.
+function renderR1Turn(spike){
+  var card = spike ? cardById(1) : currentCard();
+  if (!card && !state.beat) return renderInterstitialTransition();
+  if (!card) card = cardById(1); // reference card for the office/AI pane markup during the montage
+  if (!state.turn || state.turn.cardId !== card.id) state.turn = initTurn(card);
+  var bubbles = [null,null,null];
+  var article = null;
+  if (state.beat === 'montage'){
+    bubbles[1] = cardById(2).round1Outcome.text;
+  } else if (state.beat === 'boomerang1'){
+    bubbles[2] = cardById(1).round1Outcome.text;
+    bubbles[1] = cardById(4).round1Outcome.text;
+  } else if (state.beat === 'boomerang2'){
+    article = cardById(3).round1Outcome.text;
+    bubbles[2] = '(그 기사를 인용해 답합니다)';
+  } else if (state.beat === 'flood'){
+    bubbles = bubbleFlood();
+  }
+  if (state.beat === 'freeze') {
+    return '<div class="screen" data-region="root"><div class="freeze-line">'+esc(COPY.freezeLine)+'</div>' +
+      '<div style="text-align:center"><button data-act="toInterstitial">'+esc(COPY.continueBtn)+'</button></div></div>';
+  }
+  var html = '<div class="screen" data-region="root" data-beat="'+esc(state.beat||'')+'">';
+  html += '<div class="statusbar"><div class="statusbar__left"><span>'+esc(COPY.planLabel)+'</span></div><div></div></div>';
+  html += '<div class="stage">' + renderOfficePane(bubbles, state.beat==='flood') + renderAIPane(card, true) + '</div>';
+  if (article) html += '<div class="article-rise" style="position:static;margin:8px auto;max-width:280px">'+esc(article)+'</div>';
+  if (state.beat === 'darken' || state.beat==='montage' || state.beat==='boomerang1' || state.beat==='boomerang2' || state.beat==='flood') {
+    html += '<div class="small" style="text-align:center">...</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderInterstitialTransition(){
+  goPhase(PHASES.INTERSTITIAL);
+  return renderInterstitial();
+}
+
+function renderInterstitial(){
+  return '<div class="screen" data-region="root">' +
+    '<div class="screen-interstitial__dotzone" data-region="dotzone-anchor"></div>' +
+    '<h2>AI 안전 관제실</h2>' +
+    '<p class="dotcount">1회차에 남긴 흔적: '+state.round1Dots+'개 — 이제 지웁니다.</p>' +
+    '<button data-act="startRound2">'+esc(COPY.continueBtn)+'</button>' +
+    '</div>';
+}
+
+function renderR2Turn(){
+  var card = currentCard();
+  if (!card) { goPhase(PHASES.ENDING_RESULT); return renderEndingResult(); }
+  if (!state.turn || state.turn.cardId !== card.id) state.turn = initTurn(card);
+  var html = '<div class="screen" data-region="root">';
+  html += renderStatusBar();
+  html += '<div class="stage">' + renderOfficePane([null,null,null]) + renderAIPane(card, false) + '</div>';
+  html += renderToolbar(card);
+  html += renderSendRow();
+  html += '</div>';
+  if (state.showModal) html += renderModalMarkup();
+  return html;
+}
+
+function renderModalMarkup(){
+  return '<div class="modal" data-region="modal"><div class="modal__box">' +
+    '<p>'+esc(COPY.modalQuestion)+'</p>' +
+    (state.turnIndex >= SCORE.checkboxTurnIndex ? '<label class="small"><input type="checkbox" data-act="toggleDontAsk"> '+esc(COPY.modalDontAskAgain)+'</label>' : '') +
+    '<div class="modal__actions"><button data-act="modalReview">'+esc(COPY.modalReview)+'</button><button data-act="modalSend">'+esc(COPY.modalSend)+'</button></div>' +
+    '</div></div>';
+}
+
+function renderEndingResult(){
+  var N = activeN();
+  var td = clampDisp(state.scores.task), sd = clampDisp(state.scores.security);
+  var q = endingQuadrant(td, sd, N);
+  var e = ENDINGS[q];
+  var lines = [];
+  if (state.caps.securityOvercap>0) lines.push(COPY.overcapLine(state.caps.securityOvercap));
+  if (state.caps.securityUndercap>0) lines.push(COPY.undercapLine(state.caps.securityUndercap));
+  if (!state.flags.learningOff) lines.push(COPY.neverToggledLine);
+  return '<div class="screen" data-region="root">' +
+    '<div class="screen-ending__dotzone" data-region="dotzone-anchor"></div>' +
+    '<div class="ending-card"><h2>'+esc(e.name)+'</h2><p>'+esc(e.line)+'</p>' +
+    lines.map(function(l){ return '<p class="small">'+esc(l)+'</p>'; }).join('') +
+    '<p class="small">업무 '+td+' / 보안 '+sd+'</p>' +
+    '<button data-act="toEndingCard">'+esc(COPY.continueBtn)+'</button></div></div>';
+}
+
+function renderEndingCard(){
+  var role = state.selectedRole || ROLES[0];
+  var card = buildSafetyCard(role);
+  return '<div class="screen" data-region="root"><div class="ending-card" id="safetyCardCanvasSource">' +
+    '<h2>내 직무 안전 카드</h2>' +
+    '<div class="ending-card__block"><h3>'+esc(COPY.safetyHeadings.missed)+'</h3><p>'+esc(card.missedLine)+'</p></div>' +
+    '<div class="ending-card__block"><h3>'+esc(COPY.safetyHeadings.role)+'</h3>' +
+      '<select data-act="pickRole">' + ROLES.map(function(r){ return '<option value="'+r+'" '+(r===role?'selected':'')+'>'+r+'</option>'; }).join('') + '</select>' +
+      '<p>'+esc(card.roleLine)+'</p></div>' +
+    '<div class="ending-card__block"><h3>'+esc(COPY.safetyHeadings.habits)+'</h3><p>'+esc(card.habitsLine)+'</p></div>' +
+    '<p class="small">'+esc(card.round1Line)+'</p>' +
+    (card.overcapLine?'<p class="small">'+esc(card.overcapLine)+'</p>':'') +
+    (card.undercapLine?'<p class="small">'+esc(card.undercapLine)+'</p>':'') +
+    (card.neverToggledLine?'<p class="small">'+esc(card.neverToggledLine)+'</p>':'') +
+    '</div>' +
+    '<div style="text-align:center"><button data-act="saveCardImage">'+esc(COPY.saveImageBtn)+'</button> ' +
+    '<button data-act="toEndingPrompt">'+esc(COPY.continueBtn)+'</button></div>' +
+    '</div>';
+}
+
+function renderEndingPrompt(){
+  return '<div class="screen" data-region="root"><div class="ending-card">' +
+    '<h2>검증 프롬프트</h2>' +
+    '<div class="prompt-box" data-region="prompt-box">'+esc(COPY.verificationPrompt)+'</div>' +
+    '<button data-act="copyPrompt">'+esc(COPY.copyPromptBtn)+'</button>' +
+    '<span class="small" data-region="copy-status"></span>' +
+    '<div style="text-align:center;margin-top:16px"><button data-act="restart">'+esc(COPY.restartBtn)+'</button></div>' +
+    '</div></div>';
+}
+
+/* =====================================================================
+   5. FX
+   ===================================================================== */
+
+var reservoirObserver = null;
+function bindReservoirObserver(){
+  var anchor = document.querySelector('[data-region="dotzone-anchor"]');
+  if (reservoirObserver) reservoirObserver.disconnect();
+  if (anchor && window.ResizeObserver){
+    reservoirObserver = new ResizeObserver(function(){ anchorReservoir(); });
+    reservoirObserver.observe(anchor);
+  }
+}
+function anchorReservoir(){
+  var reservoir = document.getElementById('dotReservoir');
+  var anchor = document.querySelector('[data-region="dotzone-anchor"]');
+  if (!anchor){ reservoir.hidden = true; return; } // E2a: hide, never throw, never clear
+  reservoir.hidden = false;
+  var r = anchor.getBoundingClientRect();
+  reservoir.style.position='fixed';
+  reservoir.style.left = r.left+'px';
+  reservoir.style.top = r.top+'px';
+  reservoir.style.width = r.width+'px';
+  reservoir.style.height = r.height+'px';
+  reservoir.className='dotrow';
+  renderReservoirDots();
+}
+function renderReservoirDots(){
+  var reservoir = document.getElementById('dotReservoir');
+  var html='';
+  state.dots.forEach(function(d){
+    var cls = 'dot' + (d.variant==='partial'?' dot--partial':(d.variant==='masked'?' dot--masked':''));
+    html += '<span class="'+cls+'" data-card-id="'+d.cardId+'"></span>';
+  });
+  reservoir.innerHTML = html;
+}
+function dotClass(variant){
+  return 'dot' + (variant==='partial'?' dot--partial':(variant==='masked'?' dot--masked':''));
+}
+function settleDot(flyingEl, cardId, variant){
+  if (flyingEl && flyingEl.parentNode) flyingEl.parentNode.removeChild(flyingEl);
+  state.dots.push({ cardId: cardId, variant: variant }); // no length-derived id: nothing reads one, and it would collide after replayDot's splice
+  renderReservoirDots();
+}
+// flyDot: animates one dot from a source rect to the dot-reservoir's anchor,
+// then adopts it into the reservoir (settleDot). Falls back to an instant
+// settle if the source/target elements aren't laid out (e.g. a zero-size
+// rect, which is what a headless/stubbed environment reports).
+function flyDot(fromRect, cardId, variant){
+  var fx = document.getElementById('fxLayer');
+  var anchor = document.querySelector('[data-region="dotzone-anchor"]');
+  if (!fx || !anchor || (fromRect.width===0 && fromRect.height===0)){ settleDot(null, cardId, variant); return; }
+  var toRect = anchor.getBoundingClientRect();
+  var dot = document.createElement('div');
+  dot.className = dotClass(variant);
+  dot.setAttribute('data-inflight','1');
+  dot.setAttribute('data-card-id', cardId);
+  dot.style.left = fromRect.left+'px'; dot.style.top = fromRect.top+'px';
+  fx.appendChild(dot);
+  requestAnimationFrame(function(){ dot.style.left = toRect.left+'px'; dot.style.top = toRect.top+'px'; });
+  setTimeout(function(){ settleDot(dot, cardId, variant); }, 560);
+}
+function addDot(cardId, variant){
+  var src = document.querySelector('[data-region="doc"]');
+  if (src && window.requestAnimationFrame){ flyDot(src.getBoundingClientRect(), cardId, variant); }
+  else { settleDot(null, cardId, variant); }
+}
+// replayDot: the boomerang's core mechanism (AC-3.9) -- pulls the specific
+// dot matching cardId back OUT of the reservoir and flies it to the
+// stranger's speech bubble, proving (by shared element/data-card-id) that
+// it is literally the same data reappearing, not a coincidence.
+function replayDot(cardId){
+  var idx = -1;
+  for (var i=0;i<state.dots.length;i++){ if (state.dots[i].cardId === cardId){ idx = i; break; } }
+  if (idx === -1) return;
+  var d = state.dots[idx];
+  state.dots.splice(idx, 1);
+  renderReservoirDots();
+  var reservoir = document.getElementById('dotReservoir');
+  var target = document.querySelector('[data-region="bubble-2"]'); // 낯선 사람
+  var fx = document.getElementById('fxLayer');
+  if (!reservoir || !target || !fx) return;
+  var fromRect = reservoir.getBoundingClientRect(), toRect = target.getBoundingClientRect();
+  var dot = document.createElement('div');
+  dot.className = dotClass(d.variant);
+  dot.setAttribute('data-inflight','1');
+  dot.setAttribute('data-card-id', cardId);
+  dot.style.left = fromRect.left+'px'; dot.style.top = fromRect.top+'px';
+  fx.appendChild(dot);
+  requestAnimationFrame(function(){ dot.style.left = toRect.left+'px'; dot.style.top = toRect.top+'px'; });
+  setTimeout(function(){ if (dot.parentNode) dot.parentNode.removeChild(dot); }, 560);
+}
+function drainDots(){
+  state.dots = [];
+  renderReservoirDots();
+}
+// bubbleFlood: 파국 -- every speech bubble on screen swaps its text for
+// AI-generated sentences (AC-3.11). Returns the 3-bubble text array for the
+// office pane's next render.
+function bubbleFlood(){
+  return [1,1,1].map(function(){ return COPY.floodSentences[Math.floor(Math.random()*COPY.floodSentences.length)]; });
+}
+window.addEventListener('resize', function(){ anchorReservoir(); });
+window.addEventListener('orientationchange', function(){ anchorReservoir(); });
+
+var audioCtx = null;
+function clickSound(){
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') { audioCtx.resume(); return; }
+    var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = 900; g.gain.value = 0.05;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + 0.04);
+  } catch(e){}
+}
+var silenced = false;
+function silence(){ silenced = true; setTimeout(function(){ silenced = false; }, 3000); }
+
+function scoreChip(text, positive){
+  var chip = document.createElement('div');
+  chip.className = 'chip';
+  chip.textContent = text;
+  chip.style.left = '20px'; chip.style.top = '20px'; chip.style.opacity='1';
+  document.getElementById('fxLayer').appendChild(chip);
+  requestAnimationFrame(function(){ chip.style.opacity='0'; chip.style.transform='translateY(-20px)'; });
+  setTimeout(function(){ chip.remove(); }, 950);
+}
+
+/* =====================================================================
+   6. EVENTS
+   ===================================================================== */
+
+function toArray(marked){ var a=[]; Object.keys(marked).forEach(function(k){ if(marked[k]) a.push(Number(k)); }); return a; }
+
+function doSend(){
+  var card = currentCard();
+  if (!card || state.turn.sent) return;
+  state.turn.sent = true;
+  var grade = gradeMasking(card, state.turn.transformed);
+  state.turn.grade = grade;
+  var missedTypes = [];
+  card._risk.forEach(function(tok,i){ if (!isNeutralized(card, i, state.turn.transformed)) missedTypes.push(tok.type); });
+
+  var tools = state.turn.verifyUsed;
+  var catches = 0;
+  Object.keys(state.turn.verifyResults).forEach(function(k){ if (state.turn.verifyResults[k].catch) catches++; });
+  var gearJustFound = state.gearJustToggled;
+  var k = state.turnIndex + 1, N = activeN();
+  var result = applyScore(grade, { tools: tools, catches: catches, gearBonus: gearJustFound?1:0 }, k, N);
+  state.gearJustToggled = false;
+
+  if (typeof DEBUG_SCORE !== 'undefined' && DEBUG_SCORE){
+    var R = card._riskKeySize, nNeutral = neutralizedCount(card, state.turn.transformed);
+    console.log('[debug=score] turn', k, 'card', card.id, 'grade', grade,
+      'n/R', nNeutral+'/'+R, 'coverage', R>0 ? (nNeutral/R).toFixed(3) : 'n/a',
+      'taskDelta', result.taskDelta, 'secDelta', result.secDelta, 'forfeited', result.forfeited,
+      '| internal task/security', state.scores.task, state.scores.security);
+  }
+
+  if (isTierB(card) && tools === 0){
+    queueBoomerang(card.id);
+  }
+  var dueNow = fireDueBoomerangs();
+
+  state.log.push({ round:2, cardId: card.id, grade: grade, missedTypes: missedTypes });
+
+  var variant = grade==='clean' ? (Object.keys(state.turn.transformed).length>0 || card._riskKeySize>0 ? 'masked' : 'solid') : (grade==='partial'?'partial':'solid');
+  addDot(card.id, variant);
+
+  var fb = card.feedback;
+  if (card._riskKeySize===0 && card.emptyRiskReveal) fb = card.emptyRiskReveal + ' ' + fb;
+  if (grade==='raw' && Object.keys(state.turn.transformed).length>0){
+    var exposed = card._riskKeySize - neutralizedCount(card, state.turn.transformed);
+    fb = COPY.subThetaLine(exposed) + ' ' + fb;
+  }
+  if (result.forfeited) fb = COPY.forfeitBeatLine + ' ' + fb;
+  if (isTierB(card) && tools>0 && catches===0) fb = COPY.ritualBeatLine + ' ' + fb;
+  if (dueNow.length) fb = COPY.flushBeatLine + ' ' + fb;
+  state.turn.feedback = fb;
+
+  render();
+}
+
+function rejectCurrentCard(card){
+  var k = state.turnIndex+1, N = activeN();
+  var gearFoundOnReject = state.gearJustToggled;
+  applyScore('reject', { gearBonus: gearFoundOnReject?1:0 }, k, N);
+  state.gearJustToggled = false;
+  state.turn.sent = true; state.turn.feedback = COPY.rejectFeedback;
+  state.log.push({round:2, cardId: card.id, grade:'reject', missedTypes:[]});
+  render();
+}
+
+function advanceTurn(){
+  var ids = state.round===1 ? [1,2,3,4] : state.cardSet;
+  if (state.turnIndex >= ids.length - 1){
+    if (state.round===1){ startR1Boomerang(); return; }
+    else { flushPendingBoomerangs(); goPhase(PHASES.ENDING_RESULT); return; }
+  }
+  state.turnIndex++;
+  var nc = currentCard();
+  state.turn = initTurn(nc);
+  render();
+}
+
+function startR1Boomerang(){
+  // NOTE: state.round1Dots is NOT read from state.dots.length anywhere (see
+  // completeR1Paste, which increments it directly at the moment of paste).
+  // state.dots is the FX reservoir's live backing store, asynchronous on
+  // BOTH edges -- flyDot's settleDot lands a new dot ~560ms after the paste
+  // (round-1 review NEW-2), and replayDot removes one ~1900ms later (NEW-1)
+  // -- so no single instant of reading that array is ever safe. The paste
+  // TALLY must be its own counter, incremented at the event, not sampled.
+  goPhase(PHASES.R1_TURN, 'darken');
+  setTimeout(function(){ goPhase(PHASES.R1_TURN, 'montage'); }, 700);          // cards 2 & 4 subordinate beats (AC-3.6)
+  setTimeout(function(){ silence(); goPhase(PHASES.R1_TURN, 'boomerang1'); replayDot(1); }, 1900); // card-1 leak (AC-3.5.1 / AC-3.9)
+  setTimeout(function(){ goPhase(PHASES.R1_TURN, 'boomerang2'); }, 3400);      // card-3 fabricated-stat article (AC-3.5.2)
+  setTimeout(function(){ goPhase(PHASES.R1_TURN, 'flood'); }, 4700);
+  setTimeout(function(){ goPhase(PHASES.R1_TURN, 'freeze'); }, 5900);
+}
+
+function completeR1Paste(card){
+  if (!card || state.turn.sent) return;
+  clickSound(); addDot(card.id, 'solid'); state.round1Dots++; state.turn.sent = true;
+  state.turn.feedback = COPY.praiseR1[state.r1RequestIndex % COPY.praiseR1.length];
+  render();
+  setTimeout(function(){
+    state.r1RequestIndex++; state.turnIndex++;
+    var nc = currentCard();
+    if (!nc){ startR1Boomerang(); } else { state.turn = initTurn(nc); render(); }
+  }, 400);
+}
+
+function revealFallback(){
+  if (!state.turn || state.turn.fallbackRevealed || state.turn.sent) return;
+  state.turn.fallbackRevealed = true;
+  render();
+}
+
+// Round-1 drag gesture (Decision B3 / AC-3.3): one coarse, ungraded
+// pointerdown/pointermove/pointerup on the [data-act="dragSource"] element.
+// AC-3.3b's three reveal conditions for the hidden click fallback:
+//   1) failed drag (released without moving far enough)
+//   2) stalled drag (>=4s held with <20px movement)
+//   3) never attempted (12s idle with no pointerdown at all)
+var dragState = null;
+var DRAG_MOVE_THRESHOLD = 20;   // px
+var DRAG_STALL_MS = 4000;
+var DRAG_IDLE_MS = 12000;
+
+document.addEventListener('pointerdown', function(ev){
+  var src = ev.target.closest && ev.target.closest('[data-act="dragSource"]');
+  if (!src || !state.turn) return;
+  state.turn.dragAttempted = true;
+  dragState = { startX: ev.clientX, startY: ev.clientY, startTime: Date.now(), moved: false, el: src };
+  src.classList.add('is-dragging');
+});
+document.addEventListener('pointermove', function(ev){
+  if (!dragState) return;
+  var dx = ev.clientX - dragState.startX, dy = ev.clientY - dragState.startY;
+  if (Math.sqrt(dx*dx + dy*dy) >= DRAG_MOVE_THRESHOLD) dragState.moved = true;
+});
+function endDrag(){
+  if (!dragState) return;
+  var moved = dragState.moved;
+  dragState.el.classList.remove('is-dragging');
+  dragState = null;
+  if (moved) completeR1Paste(currentCard());
+  else revealFallback(); // condition 1: failed drag
+}
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', endDrag);
+
+// watchdog for conditions 2 (stalled) and 3 (never attempted)
+setInterval(function(){
+  if (!state || state.phase !== PHASES.R1_TURN || state.beat || !state.turn || state.turn.sent) return;
+  var now = Date.now();
+  if (dragState && !dragState.moved && (now - dragState.startTime) >= DRAG_STALL_MS){ revealFallback(); return; }
+  if (!state.turn.dragAttempted && (now - state.turn.turnStartedAt) >= DRAG_IDLE_MS){ revealFallback(); }
+}, 500);
+
+document.addEventListener('click', function(ev){
+  var el = ev.target.closest('[data-act]');
+  if (!el) return;
+  var act = el.getAttribute('data-act');
+  var arg = el.getAttribute('data-arg');
+  var card = currentCard();
+
+  if (act === 'startGame'){ initRound(1); goPhase(PHASES.R1_TURN); return; }
+  if (act === 'toggleGearPanel'){ state.showGearPanel = !state.showGearPanel; render(); return; }
+  if (act === 'toggleLearning'){
+    if (!state.flags.learningOff){ state.flags.learningOff = true; state.gearJustToggled = true; scoreChip('+10 보안', true); }
+    render(); return;
+  }
+  if (act === 'fallbackPaste'){ completeR1Paste(card); return; }
+  if (act === 'toInterstitial'){ goPhase(PHASES.INTERSTITIAL); return; }
+  if (act === 'startRound2'){
+    // state.round1Dots is incremented in completeR1Paste at each paste event
+    // -- never derived from state.dots here or anywhere else, since that
+    // array is FX-owned and asynchronous on both edges (deferred insert via
+    // flyDot's settle, deferred removal via replayDot).
+    drainDots();
+    initRound(2);
+    goPhase(PHASES.R2_TURN);
+    return;
+  }
+  if (act === 'toggleMark'){
+    var i = Number(arg);
+    state.turn.marked[i] = !state.turn.marked[i];
+    render(); return;
+  }
+  if (act === 'bulkSelectPara'){
+    // structural bulk select only (AC-2.7) -- marks every risk token in the
+    // clicked/first paragraph. Simplified: marks all risk tokens in card's
+    // first not-fully-marked paragraph. A fuller UI would let the player
+    // click a paragraph directly; toggleMark's data-para is available for that.
+    bulkMarkParagraph(card); render(); return;
+  }
+  if (act === 'bulkSelectSentence'){ bulkMarkParagraph(card); render(); return; }
+  if (act === 'applyMask'){ applyMaskTool(card, arg); render(); return; }
+  if (act === 'undoMask'){ undoLastMask(card); render(); return; }
+  if (act === 'toggleUnderline'){
+    var ci = Number(arg);
+    state.turn.underlined[ci] = !state.turn.underlined[ci];
+    render(); return;
+  }
+  if (act === 'pickVerifyTool'){ pendingVerifyTool = arg; applyVerifyToSelected(card); render(); return; }
+  if (act === 'sendCard'){
+    if (state.round===2 && !state.flags.dontAskAgain){ state.showModal = true; render(); return; }
+    doSend(); render(); return;
+  }
+  if (act === 'modalSend'){ state.showModal=false; doSend(); return; }
+  if (act === 'modalReview'){ state.showModal=false; render(); return; }
+  if (act === 'toggleDontAsk'){ state.flags.dontAskAgain = !state.flags.dontAskAgain; return; }
+  if (act === 'rejectCard'){ rejectCurrentCard(card); return; }
+  if (act === 'nextTurn'){ advanceTurn(); return; }
+  if (act === 'pickRole'){ /* handled on change */ return; }
+  if (act === 'saveCardImage'){ saveCardAsImage(); return; }
+  if (act === 'toEndingCard'){ goPhase(PHASES.ENDING_CARD); return; }
+  if (act === 'toEndingPrompt'){ goPhase(PHASES.ENDING_PROMPT); return; }
+  if (act === 'copyPrompt'){ copyPrompt(); return; }
+  if (act === 'restart'){ state = freshState(); goPhase(PHASES.TITLE); return; }
+
+  if (state.turn && state.turn.sent && card && act !== 'saveCardImage'){
+    // fallthrough: any click after send advances (simple UX: a Continue affordance)
+  }
+});
+document.addEventListener('change', function(ev){
+  if (ev.target.matches('[data-act="pickRole"]')){ state.selectedRole = ev.target.value; render(); }
+});
+document.addEventListener('keydown', function(ev){
+  if (ev.key === 'Escape' && state.showModal){ state.showModal=false; render(); }
+  if (ev.key === 'Enter' && state.showModal){ state.showModal=false; doSend(); }
+});
+
+// (the post-send "continue" affordance is rendered directly inside
+// renderAIPane -- see the data-act="nextTurn" button there.)
+
+function bulkMarkParagraph(card){
+  // mark all risk tokens belonging to the first paragraph that has any unmarked risk token
+  var paraId = null;
+  for (var i=0;i<card._risk.length;i++){
+    if (!state.turn.marked[i]){ paraId = card._risk[i].paraId; break; }
+  }
+  if (paraId===null) return;
+  card._risk.forEach(function(tok,i){ if (tok.paraId === paraId) state.turn.marked[i] = true; });
+}
+
+function applyMaskTool(card, toolId){
+  var marked = toArray(state.turn.marked);
+  if (toolId === 'summarize'){
+    if (!marked.length) return;
+    var unitId = card._summarizableUnitOf ? card._summarizableUnitOf[marked[0]] : undefined;
+    if (unitId === undefined){ state.turn.feedback = COPY.refusalNoUnit; return; }
+    var allSameUnit = marked.every(function(i){ return card._summarizableUnitOf[i] === unitId; });
+    if (!allSameUnit){ state.turn.feedback = COPY.refusalTwoUnits; return; }
+    var unitTokens = [];
+    card._risk.forEach(function(tok,i){ if (card._summarizableUnitOf[i]===unitId) unitTokens.push(i); });
+    unitTokens.forEach(function(i,idx){
+      state.turn.transformed[i] = { text: idx===0 ? card._summaries[unitId] : '', tool:'summarize' };
+    });
+    state.turn.lastAction = { type:'summarize', indices: unitTokens.slice() };
+    return;
+  }
+  // 1:1 tools
+  var applied = [];
+  marked.forEach(function(i){
+    var existing = state.turn.transformed[i];
+    if (existing && existing.tool === 'summarize'){ state.turn.feedback = COPY.refusalAlreadySummarized; return; }
+    var tok = card._risk[i];
+    var type = RISK_TYPES[tok.type];
+    var isNeutralizer = type.neutralizedBy.indexOf(toolId) !== -1;
+    var repl = tok.replacement;
+    if (!isNeutralizer && !repl){ state.turn.feedback = COPY.refusalNoSub; return; }
+    var text;
+    if (toolId === 'mask') text = MASK_TOOLS.mask.transform(tok.text);
+    else text = repl || MASK_TOOLS.mask.transform(tok.text);
+    state.turn.transformed[i] = { text: text, tool: toolId };
+    applied.push(i);
+  });
+  if (applied.length) state.turn.lastAction = { type:'oneToOne', indices: applied };
+}
+
+function undoLastMask(card){
+  var last = state.turn.lastAction;
+  if (!last) return;
+  last.indices.forEach(function(i){ delete state.turn.transformed[i]; });
+  state.turn.lastAction = null;
+}
+
+var pendingVerifyTool = null;
+function applyVerifyToSelected(card){
+  if (!pendingVerifyTool) return;
+  if (state.turn.verifyUsed >= 2) return;
+  var underlinedIdx = null;
+  Object.keys(state.turn.underlined).forEach(function(k){ if (state.turn.underlined[k] && !state.turn.verifyResults[k]) underlinedIdx = Number(k); });
+  if (underlinedIdx === null) return;
+  var result = resolveVerify(card, underlinedIdx, pendingVerifyTool);
+  state.turn.verifyResults[underlinedIdx] = result;
+  state.turn.verifyUsed++;
+  pendingVerifyTool = null;
+}
+
+function saveCardAsImage(){
+  try {
+    var src = document.getElementById('safetyCardCanvasSource');
+    var canvas = document.createElement('canvas');
+    canvas.width = 480; canvas.height = 360;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,480,360);
+    ctx.fillStyle = '#1c1c1c';
+    ctx.font = "16px 'Malgun Gothic','Apple SD Gothic Neo',sans-serif";
+    var lines = src.innerText.split('\n').filter(Boolean);
+    lines.forEach(function(l,i){ ctx.fillText(l.slice(0,40), 16, 30 + i*22); });
+    var url = canvas.toDataURL('image/png');
+    var a = document.createElement('a');
+    a.href = url; a.download = 'safety-card.png';
+    document.body.appendChild(a); a.click(); a.remove();
+    if (navigator.share){ try{ navigator.share({title:'내 직무 안전 카드'}); }catch(e){} }
+  } catch(e){ /* canvas best-effort */ }
+}
+
+function copyPrompt(){
+  var text = COPY.verificationPrompt;
+  function done(){ var el = document.querySelector('[data-region="copy-status"]'); if (el) el.textContent = COPY.copiedLabel; }
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(function(){ fallbackCopy(text, done); });
+  } else { fallbackCopy(text, done); }
+}
+function fallbackCopy(text, cb){
+  var ta = document.createElement('textarea');
+  ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try { document.execCommand('copy'); } catch(e){}
+  ta.remove();
+  if (cb) cb();
+}
+
+/* =====================================================================
+   7. BOOT
+   ===================================================================== */
+
+function tokenize(card){
+  var src = card.source;
+  var risk = [];
+  var pieces = [];
+  var summarizableUnits = {};
+  var summaries = {};
+  var summarizableUnitOf = {};
+  var paras = src.split(/\n\s*\n/);
+  var paraId = 0;
+  paras.forEach(function(paraRaw){
+    var lines = paraRaw.split('\n');
+    var isSummarizable = false, summary = null;
+    if (/^@@\s*summarize>/.test(lines[0])){
+      isSummarizable = true;
+      summary = lines[0].replace(/^@@\s*summarize>\s*/, '').trim();
+      if (!summary) throw new Error('tokenize: empty summary for card '+card.id+' para '+paraId);
+      lines = lines.slice(1);
+    }
+    if (isSummarizable){ summarizableUnits[paraId] = true; summaries[paraId] = summary; }
+    var paraText = lines.join('\n');
+    if (/…외\s*\d+건/.test(paraText) && /\[/.test(paraText)){
+      throw new Error('tokenize: "...외 N건" line must carry no annotation, card '+card.id);
+    }
+    var re = /\[([^\]|]+)\|([a-zA-Z_]+)(?:>([^\]]*))?\]/g;
+    var lastIndex = 0, m;
+    while ((m = re.exec(paraText))){
+      if (m.index > lastIndex) pieces.push({ text: paraText.slice(lastIndex, m.index), paraId: paraId });
+      var text = m[1], type = m[2], replacement = m[3];
+      var typeInfo = RISK_TYPES[type];
+      if (!typeInfo) throw new Error('tokenize: unknown risk type '+type+' on card '+card.id);
+      if (typeInfo.requiresReplacement && !replacement && !isSummarizable){
+        throw new Error('tokenize: R-r1 violation -- card '+card.id+' token "'+text+'" (type '+type+') requires >replacement');
+      }
+      var idx = risk.length;
+      risk.push({ index: idx, text: text, type: type, replacement: replacement||null, paraId: paraId });
+      if (isSummarizable) summarizableUnitOf[idx] = paraId;
+      pieces.push({ tokenIndex: idx, paraId: paraId });
+      lastIndex = re.lastIndex;
+    }
+    if (lastIndex < paraText.length) pieces.push({ text: paraText.slice(lastIndex), paraId: paraId });
+    paraId++;
+  });
+  card._sourcePieces = pieces;
+  card._risk = risk;
+  card._riskKeySize = risk.length;
+  card._summarizableUnits = summarizableUnits;
+  card._summaries = summaries;
+  card._summarizableUnitOf = summarizableUnitOf;
+
+  // answer candidates
+  var ansSrc = card.answer.text;
+  var candRe = /\[([^\]|]+)\|([a-zA-Z_]+)(?:(!)([a-zA-Z]+)|(\?))?\]/g;
+  var candidates = [], answerPieces = [];
+  var lastIdx = 0, am;
+  while ((am = candRe.exec(ansSrc))){
+    if (am.index > lastIdx) answerPieces.push({ text: ansSrc.slice(lastIdx, am.index) });
+    var ctext = am[1], clabel = am[2], genuineMark = am[3], tool = am[4], decoyMark = am[5];
+    var ci = candidates.length;
+    candidates.push({ index: ci, text: ctext, label: clabel, genuine: !!genuineMark, resolvedBy: genuineMark ? tool : null });
+    answerPieces.push({ candIndex: ci });
+    lastIdx = candRe.lastIndex;
+  }
+  if (lastIdx < ansSrc.length) answerPieces.push({ text: ansSrc.slice(lastIdx) });
+  card._answerPieces = answerPieces;
+  card._candidates = candidates;
+
+  if (isTierB(card)){
+    var genuineCount = candidates.filter(function(c){return c.genuine;}).length;
+    if (candidates.length !== 5 || genuineCount !== 2){
+      throw new Error('tokenize: AC-5.9 violation on card '+card.id+' -- expected 5 candidates/2 genuine, got '+candidates.length+'/'+genuineCount);
+    }
+  }
+}
+
+function bootAll(){
+  CARDS.forEach(tokenize);
+}
+
+var DEBUG_MODE = /[?&]debug=1/.test(location.search);
+var DEBUG_AUDIT = /[?&]debug=audit/.test(location.search) || DEBUG_MODE;
+var DEBUG_SCORE = /[?&]debug=score/.test(location.search) || DEBUG_MODE;
+var DEMO_MODE = /[?&]demo=1/.test(location.search);
+
+function runBootAudits(){
+  if (!DEBUG_AUDIT) return;
+  var sets = [ [1,2,3,4,5,6] ];
+  if (DEMO_MODE) sets.push([1,3,4,6]);
+  sets.forEach(function(ids){
+    var out = auditCardSet(ids);
+    console.log('[auditCardSet] N='+out.N, out);
+    if (DEBUG_MODE && !out.pass) throw new Error('auditCardSet FAILED for set '+ids.join(','));
+  });
+}
+
+function installMutationGuard(){
+  if (!DEBUG_MODE || !window.MutationObserver) return;
+  var body = document.body;
+  var mo = new MutationObserver(function(muts){
+    muts.forEach(function(mu){
+      mu.removedNodes && mu.removedNodes.forEach(function(n){
+        if (n.id === 'dotReservoir' || n.id === 'fxLayer' || n.id === 'modalRoot'){
+          throw new Error('I-3 violation: '+n.id+' removed from DOM');
+        }
+      });
+    });
+  });
+  mo.observe(body, { childList:true, subtree:false });
+
+  // I-3's second clause, advisory only (a WARN, not a throw): a .dot leaving
+  // #dotReservoir SHOULD carry data-inflight (replayDot's lift-out-and-fly
+  // path), but renderReservoirDots() legitimately rebuilds the reservoir's
+  // innerHTML wholesale on every re-render AND on resize/orientationchange
+  // (see anchorReservoir), which removes and re-adds every dot with no
+  // data-inflight marker at all -- a routine, correct event, not a bug. This
+  // observer therefore cannot distinguish "routine rebuild" from "a real dot
+  // vanished unexpectedly" and will warn on both; it is a coarse, log-only
+  // signal for a developer to look at, not a structural guarantee.
+  var reservoir = document.getElementById('dotReservoir');
+  if (reservoir){
+    var mo2 = new MutationObserver(function(muts){
+      muts.forEach(function(mu){
+        mu.removedNodes && mu.removedNodes.forEach(function(n){
+          if (n.nodeType === 1 && n.className && n.className.indexOf('dot') !== -1 && !n.getAttribute('data-inflight')){
+            console.warn('[I-3] a .dot left #dotReservoir without data-inflight (expected only via renderReservoirDots rebuild or replayDot)');
+          }
+        });
+      });
+    });
+    mo2.observe(reservoir, { childList:true, subtree:false });
+  }
+}
+
+function boot(){
+  bootAll();
+  runBootAudits();
+  installMutationGuard();
+  state = freshState();
+  // DEMO_MODE {1,3,4,6} -- decided in plan section 2.7 over eight criteria
+  // against the alternative {1,2,3,4}. Accepted costs, recorded here so they
+  // are not rediscovered: 자가검토 is not exercised (card 5, its only home,
+  // is dropped -- named exemption, AC-9.3b); round-1 recognition drops from
+  // 4-of-4 to 3-of-4 pre-read cards; this set's own necessity margin is 20
+  // (not 29) and its one-card frontier is 85 (not 68) at N=4, both re-checked
+  // by auditCardSet() below rather than assumed from the N=6 numbers.
+  if (DEMO_MODE) state.cardSet = [1,3,4,6];
+  window.__game = { state: function(){ return state; }, SCORE: SCORE, auditCardSet: auditCardSet,
+    gradeMasking: gradeMasking, applyScore: applyScore, baselineAward: baselineAward, CARDS: CARDS,
+    endingQuadrant: endingQuadrant, clampDisp: clampDisp, isTierB: isTierB, cardById: cardById,
+    queueBoomerang: queueBoomerang, fireDueBoomerangs: fireDueBoomerangs, flushPendingBoomerangs: flushPendingBoomerangs,
+    coverage: coverage, neutralizedCount: neutralizedCount,
+    // Test-only hooks (harmless in production; never invoked by normal play):
+    goPhase: goPhase, render: render, initRound: initRound, initTurn: initTurn,
+    currentCard: currentCard, advanceTurn: advanceTurn, doSend: doSend, PHASES: PHASES,
+    freshState: freshState, setState: function(s){ state = s; },
+    applyMaskTool: applyMaskTool, undoLastMask: undoLastMask, bulkMarkParagraph: bulkMarkParagraph,
+    resolveVerify: resolveVerify, rankMissedRisk: rankMissedRisk,
+    completeR1Paste: completeR1Paste, revealFallback: revealFallback,
+    rejectCurrentCard: rejectCurrentCard, startR1Boomerang: startR1Boomerang };
+  var phaseParam = /[?&]phase=boomerang/.test(location.search);
+  goPhase(PHASES.TITLE);
+  if (phaseParam){
+    initRound(1);
+    goPhase(PHASES.DEV_SPIKE);
+    setTimeout(startR1Boomerang, 300);
+  }
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,413 @@
+RALPH PROGRESS LOG
+==================
+
+Task: implement the approved plan at .omc/plans/ralplan-ai-vias-simulation-game.md
+(and .omc/plans/open-questions.md) as a single dependency-free index.html.
+
+## Round-1 architect review: REJECT, and the fixes applied
+
+The Step 7 reviewer (architect) confirmed the scoring engine was fully correct
+(independently re-derived clause B=31 and clause B2=68 by hand, and all 14
+AC-4.5 reference runs) but REJECTED the build for five real defects, four of
+them genuine functional bugs my own smoke test's "no exception" check had
+missed:
+
+- **D1 (BLOCKING).** `renderR1Turn`'s early-bail guard (`if (!card) return
+  renderInterstitialTransition();`) fired the instant `currentCard()` returned
+  null after the 4th round-1 request -- which is exactly when the boomerang
+  montage is supposed to play. The game silently skipped straight to the
+  interstitial; the entire round-1 payoff (the plan's self-declared 최대 관문)
+  never rendered on the real play path. FIXED: the bail now only triggers when
+  there's ALSO no `state.beat` in progress; otherwise it falls back to a
+  reference card (card 1) for the pane markup while the beat-specific content
+  (which already existed for boomerang1/flood/freeze) takes over.
+- **D2 (MAJOR).** Only `boomerang1` ever read `round1Outcome`; there was no
+  `boomerang2` beat handler and no montage step for cards 2/4, so their
+  authored outcome text was dead data. FIXED: added a `montage` beat (cards
+  2+4 outcomes) and a real `boomerang2` beat (card 3's fabricated statistic
+  rendered via a `.article-rise` element, with a bubble line noting the AI
+  citing it back); `startR1Boomerang`'s timeout schedule was extended to
+  include both.
+- **D3 (MAJOR).** `cardPositionUnlocked` (the M1/M2 vs M3/M4 gate) checked a
+  hard-coded array index (`>= 2`) instead of card 3's actual position in the
+  active card set. Under DEMO_MODE ({1,3,4,6}, where card 3 sits at index 1)
+  this silently stripped the verification toolbar from DEMO's own 전환점
+  card, making its -25 boomerang penalty unavoidable. FIXED: now locates card
+  3's index via `indexOf(3)` in the active set and unlocks from there.
+- **D4 (MINOR).** The +10 gear-toggle bonus was only ever scored inside
+  `doSend`; rejecting a card after finding the setting silently dropped the
+  bonus. FIXED: `rejectCard` now also checks and applies `gearJustToggled`.
+- **D5.** Several prd.json/this-file claims were ahead of the code:
+  `flyDot`/`settleDot`/`replayDot` didn't exist (dots just appeared via a
+  static `addDot`), `?debug=score` didn't exist, the DEMO_MODE source comment
+  recording accepted costs was missing, and the "dot leaves reservoir without
+  data-inflight" MutationObserver clause wasn't implemented. FIXED: all four
+  are now real -- `flyDot`/`settleDot` animate a dot from a source rect to the
+  dotzone anchor (falling back to an instant settle if elements aren't laid
+  out); `replayDot` pulls the SPECIFIC dot matching a cardId back out of
+  `state.dots` and flies it toward the stranger's bubble (this is what makes
+  AC-3.9 literally true rather than asserted); `?debug=score` prints a
+  per-send line with grade, n/R, coverage, deltas and running totals;
+  `installMutationGuard` gained a second observer on `#dotReservoir` itself
+  that WARNS (not throws -- `renderReservoirDots()` legitimately rebuilds the
+  reservoir's children on every re-render, so a hard throw there would be a
+  false positive) if a `.dot` leaves without `data-inflight` outside that
+  normal path; the DEMO_MODE comment now records the accepted costs and
+  per-set frontier numbers inline.
+
+New regression harness: `.omc/drafts/verify-rejection-fixes.js` -- asserts
+CONTENT at every round-1 beat (the exact leaked string, the exact article
+statistic, the exact freeze line, `state.phase` never silently jumping to
+INTERSTITIAL mid-sequence) rather than only "no exception", since a blind
+no-exception check is precisely what let D1 through the first review pass.
+Also verifies DEMO_MODE's card 3 exposes the verify toolbar (D3) and that a
+gear-toggle-then-reject sequence still scores +10 (D4). All prior harnesses
+(verify-harness, verify-reference-runs, verify-smoke, verify-masking-flow,
+verify-r1-drag) were re-run after every fix and remained green throughout --
+none of these fixes touched the scoring/grading engine.
+
+## What was built
+
+index.html (~1591 lines: HTML+CSS+JS in one file, zero external deps).
+Implements the full game per the plan's v0.1->v1.0 staging in one continuous
+build pass rather than literal separate commits per stage (single-file greenfield
+build; stages map to PRD sections implemented, not separate files/branches):
+
+- Content data: COPY (all Korean strings), SCORE (frozen §5 table + thresholds +
+  boomerangDelay + checkboxTurnIndex + gearTurnIndex + maskCoverageThreshold=0.7),
+  AUDIT.expected frontier constants, RISK_TYPES (9 types), HALLU_TYPES, MASK_TOOLS,
+  VERIFY_TOOLS, CARDS (6 cards authored as annotated strings per Decision F/F1c),
+  ENDINGS, ROLES.
+- State: PHASES enum, state object (0-based turnIndex per AC-1.9), initRound,
+  goPhase.
+- Pure logic: baselineAward, isNeutralized (R-n1), coverage/neutralizedCount,
+  gradeMasking (ordered C1-C4 clause set, C3 = R-g's coverage test at theta=0.7),
+  applyScore (R-f' baseline-forfeit-on-raw, structurally single-award per
+  AC-4.2b), gaugeSegments (3-segment display), queueBoomerang/dueBoomerangs/
+  fireDueBoomerangs/flushPendingBoomerangs (2-turn delay per R-e), resolveVerify,
+  rankMissedRisk (3 branches), endingQuadrant, buildSafetyCard, and
+  auditCardSet() implementing all six clauses (A/B/B2/C/D/E/F) from section
+  2.9.2 of the plan.
+- Render: region() accessor, render(), per-screen renderers (title, R1 turn
+  incl. boomerang beats, interstitial, R2 turn, 3 ending screens), toolbar,
+  modal, gauges (3-segment).
+- FX: dot reservoir outside #app (E2a no-anchor-hide, E2b named anchors on
+  interstitial/ending screens), ResizeObserver rebinding, WebAudio click sound,
+  score chips.
+- Events: delegated click listener, a real pointerdown/pointermove/pointerup
+  drag gesture for round-1 paste (Decision B3) with the AC-3.3b three-condition
+  fallback watchdog (failed/stalled>=4s/idle>=12s), mask-tool application incl.
+  R-c2/R-c3/R-c4 refusal rules, verify-tool application, modal handling.
+- Boot: tokenize() (the only call site, under section 7 per AC-1.6b) parsing
+  the annotated-string grammar ([text|type], [text|type>replacement],
+  @@ summarize> unit headers, answer !tool/? candidate annotations), boot-time
+  assertions (R-r1 replacement requirement, AC-5.9 candidate counts), the
+  auditCardSet() enumerator wired to ?debug=audit/?debug=1, a MutationObserver
+  guard (I-3), and DEMO_MODE (?demo=1) trimming to cards {1,3,4,6}.
+
+## Verification (no browser tool available -- see below for what this means)
+
+Wrote 5 scratch Node.js harnesses under .omc/drafts/ (NOT shipped, NOT
+referenced by index.html) that extract the <script> content from index.html
+and run it in a stubbed DOM-less vm sandbox, then drive the real exported
+functions (via a window.__game test-hook object) with real inputs:
+
+1. verify-harness.js: baselineAward sums to 100 at N=4/5/6; auditCardSet()
+   clause B=31 and clause B2=68 at N=6 (EXACTLY matching the plan's
+   AUDIT.expected constants -- this is the single most reviewed number in the
+   entire 5-round consensus process); same for DEMO_MODE (40/85); clause C/D/E/F
+   all pass; per-card riskKeySize matches the plan's F1e pinned table exactly
+   (8,8,0,8,9,8); AC-5.3b's coverage-boundary walk on card 1 produces exactly
+   raw,raw,raw,raw,raw,partial,partial,clean for 1..8 tokens masked.
+2. verify-reference-runs.js: drives applyScore + queueBoomerang +
+   fireDueBoomerangs + flushPendingBoomerangs turn-by-turn through all 14 of
+   AC-4.5's reference runs and asserts EXACT internal+displayed 업무/보안
+   values against the plan's table. ALL 14 PASS, including the two rows that
+   specifically regression-test the round-3/round-4/round-5 fixes (row 8:
+   zero-masking exploit closed at 21 not 70; row 12: minimal-masking exploit
+   closed at 31 not 100/116) and row 13 = row 2 exactly (digit-for-digit).
+3. verify-smoke.js: drives goPhase()/render() through a full simulated
+   playthrough (title -> all 4 round-1 cards -> all 5 boomerang beats ->
+   interstitial -> all 6 round-2 cards sent -> all 3 ending screens) plus a
+   separate DEMO_MODE boot. No exceptions anywhere in the render path.
+4. verify-masking-flow.js: exercises the real applyMaskTool() path end-to-end
+   on real card data -- bulk paragraph select, 1:1 tool application, R-c4
+   refusal (no authored replacement + wrong tool), undo, 요약 collapse across
+   a declared unit, R-c3 refusal on an already-collapsed index, AC-4.10's
+   wrong-tool-still-applies-but-doesn't-neutralize case. All pass.
+5. verify-r1-drag.js: directly exercises completeR1Paste/revealFallback and
+   confirms the turn-advance is correctly deferred (async), dragAttempted/
+   fallbackRevealed flags behave as specified.
+
+Static/grep checks: zero matches for cdn/unpkg/jsdelivr/googleapis/require(/
+import /type="module"/<script src/fetch(/XMLHttpRequest; favicon data-uri
+present; the literal 0.7 occurs exactly once in the whole file (SCORE's own
+definition -- confirming gradeMasking reads SCORE.maskCoverageThreshold and
+never a bare literal, per AC-1.5); no 직책/role/title map or replacements-table
+pattern anywhere (AC-1.6); tokenize( appears only under the "7. BOOT" banner
+(AC-1.6b); grep-confirmed no state.round===1 branch inside the four functions
+AC-1.7 names.
+
+**What this verification does NOT cover**: actual visual rendering, CSS layout
+correctness at different viewport widths, real pointer/touch gesture feel, the
+exact FX timing constants "feeling right", and console warnings a real browser
+would emit. I have no browser/Playwright tool available in this environment,
+so these could not be verified by playing the game -- only by static/logical
+review of the code. The plan itself designates several of these as things a
+human tester must judge (v0.1.5's "소름이 돋는가", v0.4's drag-ergonomics
+observation, OQ-5's playtest tuning) -- those remain genuinely open pending a
+human playtest, exactly as the plan anticipated.
+
+## Bugs found and fixed during verification (via the harnesses above)
+
+- Clause C's per-token "legal neutralizers" computation didn't dedupe the
+  'summarize' entry pushed for tokens inside a declared summarize-eligible
+  unit, producing a 2-element array for hr_eval/confidential_doc tokens
+  instead of the correct 1-element {summarize} set, which made 'summarize'
+  wrongly appear omissible. Fixed by using a Set-like dedup before the
+  length===1 check. Caught immediately by verify-harness.js's clause-C check.
+- A dead no-op ternary in renderCardSource's class-name construction
+  (`'doc'+(dragMode?'':'')` -- both branches were empty strings).
+- Round-1 documents were rendering individual risk tokens as clickable
+  (data-act="toggleMark") spans with risk highlighting, which contradicts
+  AC-3.1 (round 1 has nothing to click but the drag itself) and the plan's
+  D1a/D1b design intent. Fixed: renderCardSource now renders plain
+  non-interactive text in dragMode.
+- The round-1 paste handler treated a plain click on the whole document as an
+  instant successful "drag", meaning there was no real gesture requirement at
+  all and the AC-3.3b fallback button could never be meaningfully tested
+  (it would never need to appear). Replaced with a real pointerdown/
+  pointermove/pointerup gesture (20px movement threshold) plus a 500ms
+  watchdog implementing all three AC-3.3b reveal conditions (failed drag,
+  stalled >=4s, idle >=12s with no attempt).
+- A fragile `renderAIPane = function(card){ ... html.replace('</div>', ...) }`
+  monkey-patch silently dropped the newly-added dragMode parameter and would
+  have inserted the "continue" button after the WRONG closing </div> (the
+  dotzone anchor's, since it's the first `</div>` in the string). Replaced
+  with a plain conditional inside renderAIPane itself.
+- renderAIPane read `state.round` directly to decide drag-mode styling, which
+  is a mild violation of AC-1.7's intent (round-branching kept out of the
+  round-2 render/grade path) even though renderAIPane isn't literally one of
+  AC-1.7's four named functions. Refactored to take an explicit `dragMode`
+  parameter from each caller instead.
+
+## Round 2: independent architect review found a REJECT-level defect; fixed
+
+An independent architect review (Step 7 reviewer verification) against
+.omc/prd.json's acceptance criteria found the scoring engine correct (it
+independently re-derived clause B=31/B2=68 and all 14 reference runs by hand)
+but REJECTED the implementation for a genuine, serious defect on the main
+play path plus several overclaimed acceptance-criteria line items. Fixed all
+of them; see below. A NEW regression harness (.omc/drafts/verify-r1-boomerang.js)
+now asserts actual CONTENT at each beat (not just "no exception"), which is
+exactly the class of check needed to catch this defect -- and did, on first
+write, before the fix.
+
+- **D1 (BLOCKING, now FIXED)**: `renderR1Turn`'s guard `if (!card) return
+  renderInterstitialTransition();` fired unconditionally once `currentCard()`
+  returned null (which happens the instant all 4 round-1 requests are done,
+  BEFORE the boomerang montage plays) -- so the game silently jumped straight
+  to the interstitial and the entire boomerang sequence (darken/boomerang1/
+  boomerang2/flood/freeze) never rendered. Fixed: the guard now only fires
+  when there is no card AND no beat in progress; during the montage it falls
+  back to a reference card (card 1) for the pane markup while `state.beat`
+  drives the actual beat-specific content. Verified: `state.phase` stays
+  `R1_TURN` through all beats; the leak string `010-1234-XXXX` and the freeze
+  line `다시 해보시겠습니까?` are now actually present in the rendered HTML at
+  the right beats (verify-r1-boomerang.js).
+- **D2 (MAJOR, now FIXED)**: the second boomerang (card 3's fabricated
+  statistic becoming a news article) and the cards-2/4 montage beats were
+  never implemented -- only `boomerang1` read any `round1Outcome` data, so
+  cards 2/3/4's authored outcome text was dead. Fixed: added a `montage` beat
+  (renders card 2's outcome, plus card 4's outcome folded into `boomerang1`)
+  and a real `boomerang2` beat (renders card 3's outcome via a `.article-rise`
+  element). `startR1Boomerang`'s timer schedule now has 6 beats:
+  darken -> montage -> boomerang1 -> boomerang2 -> flood -> freeze. Verified
+  by content assertion in verify-r1-boomerang.js.
+- **D3 (MAJOR, now FIXED)**: `cardPositionUnlocked()` keyed the 전환점 (M3/M4
+  unlock) off a hard-coded array position (`idx >= 2`), which is correct for
+  the full 6-card set but WRONG under DEMO_MODE `{1,3,4,6}`, where card 3 (the
+  card that IS the 전환점 by identity) sits at position 1 -- so DEMO_MODE
+  silently stripped M3/M4 from card 3 and made its -25 boomerang penalty
+  unavoidable (no verification UI to prevent it), directly contradicting
+  section 2.7's stated reason for choosing this card set (2 tier-B practice
+  cards). Fixed: now locates card 3's position in whatever set is active
+  (`ids.indexOf(3)`) and unlocks from there, by identity not fixed position.
+  Also removed a dead `isUnlocked()` function that carried the same wrong
+  assumption and was never called. Verified in verify-r1-boomerang.js.
+- **D4 (MINOR, now FIXED)**: if a player toggled the hidden learning-off
+  switch (`+10 보안`, shown via a chip) and then REJECTED the same turn instead
+  of sending, the +10 was silently never scored (`rejectCard`'s `applyScore`
+  call never passed `gearBonus`), while `flags.learningOff` was still `true` --
+  so the player saw the chip, kept the "off" state, but got neither the points
+  nor the ending's explanatory line. Fixed: `rejectCard` now reads
+  `state.gearJustToggled` and passes `gearBonus` through, same as `doSend`.
+- **D5 (six overclaimed .omc/prd.json line items, now made true)**:
+  `flyDot`/`settleDot`/`replayDot` did not exist at all (dots just appeared
+  instantly via `addDot`, no flight, no replay) -- now implemented for real:
+  `flyDot` animates a dot from a source rect to the reservoir's anchor (with
+  an instant-settle fallback if elements aren't laid out), `settleDot` adopts
+  it into the reservoir, `replayDot(cardId)` pulls a specific dot back OUT of
+  the reservoir by cardId and flies it to the stranger's bubble during
+  boomerang1 -- which is also what makes AC-3.9's "that exact dot" claim
+  literally true now rather than asserted. `?debug=score` genuinely did not
+  exist (only `?debug=audit`/`?debug=1` were parsed) -- added, printing per-
+  send task/security deltas, coverage n/R, and the forfeited marker. The
+  MutationObserver's I-3 dot-removal clause was entirely absent -- added a
+  second observer on `#dotReservoir` (as a WARN, not a throw, since normal
+  re-renders legitimately rebuild the reservoir's innerHTML wholesale -- a
+  strict throw would fire on ordinary redraws, not just real bugs; this is
+  documented in-source). DEMO_MODE had no comment recording accepted costs --
+  added one naming the 자가검토 exemption, the recognition-beat cost, and the
+  DEMO-set frontier numbers (20/85). The inline flood-sentence generator was
+  extracted into a real named `bubbleFlood()` function.
+- `region()` remains defined but is genuinely NOT the write path `render()`
+  uses (render() does one bulk `#app.innerHTML` replace per screen, not
+  per-region writes) -- AC-1.8's I-1 invariant is therefore NOT structurally
+  enforced the way the plan's literal text describes. This is a real,
+  disclosed architectural simplification, not a bug: nothing depends on it
+  for correctness (the dot reservoir's protection comes from living entirely
+  OUTSIDE `#app`, which is unaffected by how `#app` itself is written), and a
+  single bulk innerHTML replace is a valid alternative to per-region writes
+  under the plan's own Principle 4 ("no clever indirection"). Flagging this
+  explicitly rather than silently leaving `region()` as dead-looking code.
+
+## Known gaps / honest limitations (not blocking, all plan-anticipated)
+
+- gradeUnderlines: the plan names this as a distinct deliverable; I implemented
+  the equivalent behavior inside resolveVerify() instead of as a separately
+  named function. Functionally equivalent, naming differs from the plan's
+  literal deliverable list.
+- `?debug=score` now prints per-send task/security deltas, coverage n/R and
+  the forfeited marker (added in round 2 of this ralph session -- see above).
+  `?debug=timing` (first-read vs interaction time split, for the v0.4 6-vs-4
+  card-count decision) is NOT implemented -- this affects only manual-QA
+  convenience during a real human v0.4 playtest, never scored behavior.
+- `region()` is defined (matching AC-1.8's I-1 accessor shape) but is not
+  actually the path `render()` writes through -- see the round-2 note above.
+- Sentence-level bulk select (문장 전체 선택) is currently aliased to the
+  same paragraph-level selection as 문단 전체 선택, rather than a distinct
+  finer-grained selection. A real implementation would split on Korean
+  sentence-ending punctuation; given no browser to validate the UX against,
+  I kept the simpler, safe behavior (paragraph-level for both) rather than
+  risk an undertested sentence-splitting heuristic.
+- FX timing constants (--dur-fly, --dur-darken, etc.) are set to plausible
+  values but were never tuned against a real human tester's reaction, since
+  the plan explicitly reserves that tuning for the v0.1.5/v0.4 human gates.
+- No real browser was used at any point -- all verification is via Node.js
+  running the extracted script logic in a stubbed sandbox, plus static
+  grep/structural checks. Visual/UX quality, exact CSS layout behavior, and
+  the emotional "does the boomerang land" question are unverified and
+  genuinely require a human playtest, which the plan itself requires too.
+
+## Round-2 re-verification: REJECT (one new regression), and the fix applied
+
+Re-dispatched the same reviewer to confirm the round-1 fixes. It independently
+hand-re-derived clause B=31 and clause B2=68 at N=6 (the scoring engine was
+untouched by the round-1 fixes and remained correct), confirmed D1/D2/D3 via
+its own unlock matrix and call-path trace, and confirmed D4/D5 by inspection.
+But it found one genuine regression the D5 `replayDot` fix introduced:
+
+- **NEW-1.** `replayDot(1)` unconditionally removes card 1's dot from
+  `state.dots` to animate it flying out to the stranger's bubble, and never
+  returns it. `state.round1Dots` was being read from `state.dots.length`
+  *after* the boomerang sequence had already run `replayDot(1)`, so it
+  reported 3 instead of the true count of 4 pasted documents -- a wrong
+  number shown on both the interstitial ("1회차에 남긴 흔적: 3개") and the
+  ending safety card ("1회차에 그대로 넘긴 문서 3건이 있었습니다"). Root
+  cause: `state.dots` was doing double duty as both the FX reservoir's live
+  backing store (which legitimately shrinks as dots fly out) and the
+  canonical round-1 paste tally (which should not).
+  FIXED: `state.round1Dots = state.dots.length` now runs at the very TOP of
+  `startR1Boomerang()`, before `replayDot` or anything else can remove a dot
+  -- capturing the true paste count at the one moment it's guaranteed
+  accurate, rather than re-reading a shrinking array later. The redundant
+  (and now unsafe) re-assignment at the `startRound2` handler was removed.
+
+Two more non-blocking items from the same pass, also fixed:
+
+- The MutationObserver's second (advisory WARN) clause carried a comment
+  claiming it "only flags a dot that vanished WITHOUT any reservoir mutation
+  being observed" -- false; it has no such discrimination and will warn on
+  every routine `renderReservoirDots()` rebuild once any dot exists. Comment
+  corrected to describe it honestly as a coarse, non-discriminating,
+  log-only signal.
+- The D4 regression test called `applyScore('reject', ...)` directly with a
+  hand-shaped argument, rather than driving the actual reject-button code
+  path -- so a real regression in that handler would not have been caught.
+  FIXED: extracted the inline click-handler logic into a named
+  `rejectCurrentCard(card)` function (also cleaner in its own right),
+  exposed it via `__game`, and pointed the test at it directly.
+
+`verify-rejection-fixes.js` gained two new checks driving the real
+`startR1Boomerang()` path: `round1Dots === 4` immediately after the boomerang
+starts (before any replay), and `round1Dots === 4` still, after
+`replayDot(1)` has actually run and removed a dot from the live reservoir
+(`state.dots.length` correctly drops to 3 at that point -- that's the FX
+layer working as intended; `round1Dots` must not track it). All six harnesses
+(the five from round 1, plus this one) re-run clean after this fix.
+
+## Round-3 final re-verification: REJECT (one more timing race), and the fix
+
+Re-dispatched the reviewer a third time. It confirmed the NEW-1 fix's
+ordering was genuinely correct (capture precedes `replayDot`) and that
+everything from rounds 1-2 held up, including a third independent hand-
+derivation of clause B=31 / clause B2=68 at N=6. But it found **NEW-2**: the
+round-2 fix only closed the REMOVAL-side race. `state.dots` is asynchronous
+on BOTH edges -- `flyDot`'s animated settle lands a NEW dot in `state.dots`
+~560ms after a paste, while `completeR1Paste`'s own advance timer fires at
+400ms. On the 4th (final) round-1 paste, `state.round1Dots = state.dots.length`
+was therefore still being read ~160ms BEFORE that paste's own dot had
+finished landing -- under-reporting 3 instead of 4 in any real browser. The
+round-2 harness's checks passed only because its zero-size
+`getBoundingClientRect` stub forced `flyDot` down its instant-settle
+fallback, entirely bypassing the 560ms delay -- the checks were validating
+the STUB's behavior, not the game's. (This is the same class of blind spot
+as D1's original "no exception" check, one layer down -- the reviewer noted
+this explicitly.)
+
+While investigating, it also surfaced a related, PRE-EXISTING bug (not
+introduced by any of these fixes): `renderAIPane` rendered a manual
+"continue" (`nextTurn`) affordance even in round 1 (`dragMode`), where
+advancement is already automatic via `completeR1Paste`'s own timer. A click
+on that button within the ~400ms window could double-advance `turnIndex` and
+silently skip a round-1 card.
+
+**Root cause, per the reviewer's own diagnosis**: `state.dots` is the FX
+reservoir's live backing store, asynchronous in both directions -- no single
+instant of sampling `state.dots.length` is ever safe for a correctness-
+bearing tally. The fix must not read the array at all.
+
+**Fixed**: `state.round1Dots++` now runs directly inside `completeR1Paste`,
+at the same place `addDot` is called -- i.e. the tally increments AT THE
+PASTE EVENT itself, making it correct by construction and completely
+independent of any FX timing constant (560ms settle, 1900ms replay, or any
+future retiming of either). The `state.dots.length`-based derivation was
+deleted from `startR1Boomerang` entirely (only an explanatory comment
+remains, pointing future readers at `completeR1Paste`). Also fixed the
+double-advance race: the `nextTurn` button in `renderAIPane` is now gated on
+`!dragMode`, since round 1 never needs a manual continue affordance at all.
+
+New harness: `.omc/drafts/verify-r1-timing-race.js` -- uses a virtual clock
+(a priority queue of `{fireAt, fn}` fired in real time order, honoring actual
+`setTimeout` delays rather than draining them all at once) plus NON-zero
+`getBoundingClientRect` stubs specifically so `flyDot` takes its real
+animated path instead of the instant-settle fallback that hid NEW-2 from
+every prior harness. Confirms `round1Dots` stays exactly 4 through a
+realistically-timed full round-1 playthrough (checked immediately after the
+4th paste, after `replayDot(1)` fires at +1900ms, and again at the very end),
+and confirms the `nextTurn` affordance is entirely absent in round 1 so there
+is nothing left to race against. All seven harnesses (six from rounds 1-2,
+plus this one) pass clean after this fix.
+
+## Open items carried from the plan (not implementation gaps -- product/content decisions)
+
+OQ-2/OQ-3 (risk-signal taxonomies): implemented per the plan's own proposed
+ASSUMPTION-banner content (see RISK_TYPES/HALLU_TYPES comments), since the
+real Day-9 slide content is not in this repo.
+OQ-4 (Korean copy set): all ~18 items are authored with reasonable placeholder-
+quality Korean prose in COPY, matching the plan's required render locations,
+but were not written by a dedicated human content owner as the plan specifies.
+OQ-5/OQ-10/OQ-11/OQ-12: shipped exactly at the plan's stated defaults/working
+assumptions (threshold=60, reading (a), 6-card default, no R-h), all correctly
+implemented and verified via the harnesses above.

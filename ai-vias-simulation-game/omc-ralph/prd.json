@@ -1,0 +1,162 @@
+{
+  "title": "우리는 우리가 넣은 대로 된다 - single-file game implementation",
+  "sourcePlan": ".omc/plans/ralplan-ai-vias-simulation-game.md",
+  "reviewHistory": [
+    {
+      "round": 1,
+      "reviewer": "architect (Step 7)",
+      "verdict": "REJECT",
+      "findings": "D1 BLOCKING: the round-1 boomerang sequence was unreachable on the real play path (renderR1Turn bailed to the interstitial once currentCard() returned null after the 4th request, before any beat-specific markup could render). D2 MAJOR: boomerang 2 (card 3's fabricated statistic becoming a news article) and the cards-2/4 montage beats were never implemented -- only boomerang1 read round1Outcome. D3 MAJOR: DEMO_MODE broke the M3/M4 unlock boundary because cardPositionUnlocked keyed off a hard-coded array position (>=2) rather than card-3's actual position in the active set, so DEMO's own 전환점 card lost its verification toolbar and became an unavoidable -25. D4 MINOR: the +10 gear-toggle bonus could be lost if the player rejected instead of sending on the turn it was found. D5: several prd.json/progress.txt claims (flyDot/settleDot/replayDot, ?debug=score, the DEMO_MODE cost comment, the dot-leaves-reservoir MutationObserver check) were asserted as implemented and were not.",
+      "resolution": "All five fixed in the same session -- see each story's acceptanceCriteria and .omc/progress.txt's 'Round-1 rejection and fixes' section. A new targeted regression harness (.omc/drafts/verify-rejection-fixes.js) asserts CONTENT (not just 'no exception') for every beat: the exact leaked string, the exact article statistic, the exact freeze line, and that state.phase never silently jumps to INTERSTITIAL mid-sequence -- specifically because a blind no-exception check is what let D1 through the first review pass."
+    },
+    {
+      "round": 2,
+      "reviewer": "architect (re-verification)",
+      "verdict": "REJECT",
+      "findings": "D1/D2/D3 confirmed genuinely fixed by independent hand-tracing and an independent unlock matrix; D4 confirmed correct by inspection; D5 confirmed substantially real (flyDot/settleDot/replayDot are genuine, ?debug=score produces output, the DEMO_MODE comment is present and numerically consistent). Scoring engine re-confirmed untouched and correct (clause B=31/B2=68 at N=6 both independently hand-derived and harness-confirmed, all 14 reference runs exact). BUT: found NEW-1, a regression the D5 replayDot fix introduced -- replayDot(1) unconditionally spliced card 1's dot out of state.dots to animate it and never returned it, so state.round1Dots (captured afterward, at state.dots.length) under-reported 3 instead of 4 documents pasted, surfacing a wrong count on both the interstitial ('1회차에 남긴 흔적: 3개') and the ending safety card ('1회차에 그대로 넘긴 문서 3건이 있었습니다'). Also flagged two non-blocking items: a misleading in-source comment on the MutationObserver's second (WARN) clause overstating its discrimination ability, and the D4 regression test bypassing the real rejectCard code path (calling applyScore directly with a hand-shaped argument instead of driving the actual handler).",
+      "resolution": "Fixed NEW-1 by capturing state.round1Dots = state.dots.length at the TOP of startR1Boomerang(), before replayDot(1) (or anything else) can remove a dot from the live reservoir -- this reads the true paste count once, at the one moment it's guaranteed accurate, rather than re-reading a shrinking FX-backing-store array later. Removed the now-redundant (and now-wrong-if-relied-on) reassignment at the startRound2 handler. Corrected the MutationObserver comment to accurately describe it as an advisory, non-discriminating warning. Extracted the reject-card click handler into a named rejectCurrentCard(card) function (exposed via __game) so the D4 regression test now drives the real code path instead of a hand-shaped applyScore call. Added two new checks to verify-rejection-fixes.js asserting round1Dots===4 both immediately after boomerang start and after replayDot(1) has run."
+    },
+    {
+      "round": 3,
+      "reviewer": "architect (final re-verification)",
+      "verdict": "REJECT",
+      "findings": "Confirmed the NEW-1 fix's ordering was correct (capture genuinely precedes replayDot) and that D1-D5, the MutationObserver comment, and the rejectCurrentCard extraction all held up under a third independent pass, alongside the scoring engine (clause B=31/B2=68 at N=6 re-hand-derived a third time, all 14 reference runs, all six then-existing harnesses green). BUT found NEW-2: the fix only closed the REMOVAL-side race (replayDot at +1900ms). It missed a symmetric INSERTION-side race -- flyDot's animated settle lands a new dot in state.dots ~560ms after a paste, while completeR1Paste's own advance timer fires at 400ms, so on the 4th (final) round-1 paste, state.round1Dots was still being sampled 160ms BEFORE that paste's own dot had landed, under-reporting 3 instead of 4 in any real browser. The previous harness's checks passed only because its zero-size getBoundingClientRect stub forced flyDot's instant-settle fallback (bypassing the 560ms delay entirely) -- i.e. the checks were validating stub behavior, not game behavior. Also surfaced a related pre-existing (not newly introduced) bug while investigating: renderAIPane rendered a manual 'continue'/nextTurn affordance even in round 1 (dragMode), where advancement is already automatic via completeR1Paste's own timer -- a click on it within that ~400ms window could double-advance turnIndex and skip a round-1 card.",
+      "resolution": "Root-caused per the reviewer's own diagnosis: state.dots is asynchronous on BOTH edges (deferred insert via flyDot/settleDot, deferred removal via replayDot), so no instant of sampling state.dots.length is ever safe -- the paste tally needed to be its own counter, incremented at the moment of the event, never derived from the FX array. Fixed: state.round1Dots++ now runs directly inside completeR1Paste (alongside its existing addDot call), and the derivation via state.dots.length was removed entirely from startR1Boomerang. This makes the counter correct by construction, independent of any FX timing constant. Also fixed the related double-advance race: the nextTurn button in renderAIPane is now gated on !dragMode, since round 1 never needs (or should offer) a manual continue affordance. Added a new dedicated harness, .omc/drafts/verify-r1-timing-race.js, using a virtual clock (real setTimeout delays honored in firing order) and NON-zero getBoundingClientRect stubs specifically so flyDot takes its animated path rather than the instant-settle fallback that hid this bug from every prior harness -- confirms round1Dots stays exactly 4 throughout a full, realistically-timed round-1 playthrough including after replayDot(1) fires, and confirms the nextTurn affordance is entirely absent in round 1 so there is nothing left to race against."
+    }
+  ],
+  "stories": [
+    {
+      "id": "US-001",
+      "title": "v0.1 - File skeleton, CSS, content data, state, scoring engine core, card 1",
+      "priority": 1,
+      "passes": true,
+      "governingCriteriaRevision": 1,
+      "completionCriteriaRevision": 1,
+      "verification": "node .omc/drafts/verify-harness.js -- ALL CHECKS PASSED (baselineAward sums, clause B=31/clause B2=68 at N=6 matching plan's AUDIT.expected exactly, card1 riskKeySize=8, AC-5.3b coverage-boundary walk raw,raw,raw,raw,raw,partial,partial,clean)",
+      "acceptanceCriteria": [
+        "index.html exists at repo root, single file, valid HTML5 doctype, lang=ko, has <title>우리는 우리가 넣은 대로 된다</title>",
+        "No external resources: no <script src>, no <link href=http...>, no @import url(http...), no fetch/XHR in source (grep clean)",
+        "<link rel=icon href=data:,> present",
+        "IIFE script with section banner comments: 1. CONTENT DATA / 2. STATE / 3. PURE LOGIC / 4. RENDER / 5. FX / 6. EVENTS / 7. BOOT, in that order",
+        "SCORE object frozen with exact PRD section 5 deltas, threshold:{security:60,taskPerCard:10}, boomerangDelay:2, checkboxTurnIndex:2, gearTurnIndex derived per AC-7.4, maskCoverageThreshold:0.7",
+        "AUDIT.expected.zeroMaskFrontier={6:31,5:50,4:40} and oneCardFrontier={6:68,5:90,4:85} present",
+        "baselineAward(k,N) implements round(100k/N)-round(100(k-1)/N); sums to exactly 100 for N=4,5,6",
+        "applyScore(sendOutcome, modifiers) is structurally single-award (AC-4.2b): one enum param, cannot double-award a completion delta",
+        "tokenize() implemented per Decision F1/F1a/F1b/F1c grammar: [text|type], [text|type>replacement], @@ summarize> unit headers, !tool/? answer annotations; called only from BOOT section (grep-verifiable)",
+        "tokenize() boot-throws if an anonymize/fake-neutralized token lacks >replacement (R-r1), if an @@ summarize unit has empty sentence or wrong tool name, if a '...외 N건' line contains '['",
+        "gradeMasking implements ordered exclusive clause set C1 (empty key->clean) / C2 (coverage=1->clean) / C3 (coverage<0.7->raw, forfeits baseline) / C4 (else->partial), reading SCORE.maskCoverageThreshold in exactly one place",
+        "Card 1 authored per PRD section 6 card 1: risk key R=8 (3 pii_name + 3 pii_phone + 2 biz_id), '...외 27건' display device with no annotation, no summarize-eligible unit",
+        "renderGauges() ships the 3-segment model (earned/ghost/lost + overdraft marker) summing to exactly 100, not a 1-segment bar",
+        "M1 marking works: clicking a token in the prompt toggles state.turn.marked (a Set of original token indices); M1 has no independent score",
+        "v0.1 gate playable end to end: card 1 can be sent raw, rejected, or masked via the fixed v0.1 stub transform, gauges update visibly",
+        "?debug=score prints unclamped internal totals, per-turn baseline ledger with forfeited marker, and each turn's coverage fraction n/R and grade"
+      ]
+    },
+    {
+      "id": "US-002",
+      "title": "v0.1 continued - dot reservoir/FX, card feedback, stub ending, v0.1.5 boomerang spike",
+      "priority": 2,
+      "passes": true,
+      "governingCriteriaRevision": 1,
+      "completionCriteriaRevision": 1,
+      "verification": "node .omc/drafts/verify-smoke.js + node .omc/drafts/verify-r1-drag.js + node .omc/drafts/verify-rejection-fixes.js (content-asserting, not just no-exception: confirms flyDot/settleDot/replayDot actually move dots through state.dots correctly and that replayDot pulls card 1's specific dot back out during the boomerang1 beat)",
+      "acceptanceCriteria": [
+        "#dotReservoir created once at boot as a direct child of body, sibling of #app/#fxLayer/#modalRoot; anchorReservoir() reads a [data-region=dotzone-anchor] element's rect and transform-anchors the reservoir",
+        "anchorReservoir() E2a: if no anchor element exists on the current screen, hides the reservoir cleanly (hidden=true), never throws, never clears children",
+        "bindReservoirObserver() disconnects and re-observes the current anchor node from the tail of both render() and goPhase()",
+        "flyDot/settleDot/replayDot are real named functions (not inline addDot-only logic): flyDot animates from a source rect to the dotzone anchor then adopts via settleDot; falls back to an instant settle when elements aren't laid out; replayDot pulls the specific dot matching a cardId back OUT of state.dots and flies it toward the stranger's bubble region, which is what makes AC-3.9's 'that exact dot comes back' literally true rather than asserted; dots carry data-card-id",
+        "clickSound() via WebAudio oscillator created/resumed on first user gesture, no-op while suspended, no audio file",
+        "Card 1 feedback line renders verbatim after send: '결과물은 똑같이 얻었습니다. 원본을 다 줄 필요가 없었던 거죠.'",
+        "A stub end screen is reachable after card 1 (or the last available card), showing final 업무/보안 totals and one neutral line, with .screen-ending__dotzone anchor present",
+        "?debug=1 installs a MutationObserver that throws if #dotReservoir/#fxLayer/#modalRoot is removed from the DOM; a second observer on #dotReservoir itself WARNS (not throws -- renderReservoirDots legitimately rebuilds the reservoir's children on every re-render, so a hard throw there would be a false positive) if a .dot leaves without data-inflight outside that normal rebuild/replayDot path",
+        "?phase=boomerang dev route plays: card-1 drag -> dot flies -> settles -> screen darkens -> stranger's bubble renders 김OO 010-1234-XXXX from the same dot flying back out (via replayDot) -> silence -> bubbleFlood() -> freeze on '다시 해보시겠습니까?'",
+        "Round-1 paste gesture is implemented as a real pointerdown/pointermove/pointerup drag on the [원본 문서] element (Decision B3), ungraded, no token math; a hidden click fallback reveals only on failed/stalled(>=4s)/idle(>=12s) per AC-3.3b"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "v0.2 - Masking editor (4 tools), card 2, touch/mobile pass, whole-document card 4",
+      "priority": 3,
+      "passes": true,
+      "governingCriteriaRevision": 1,
+      "completionCriteriaRevision": 1,
+      "verification": "node .omc/drafts/verify-masking-flow.js -- ALL PASSED (bulk paragraph select, 1:1 tool application + R-c4 refusal, 요약 collapse across the discussion-body unit, R-c3 refusal on already-collapsed index, undo semantics, AC-4.10 wrong-tool-still-applies-but-no-neutralize)",
+      "acceptanceCriteria": [
+        "MASK_TOOLS has 익명화/마스킹/요약/가상데이터; 익명화, 가상데이터, 요약 read authored inline values from annotations (R-r1); only 마스킹 has a derived pure transform (R-r2, keeps leading segment + stars remainder); no anonymize.transform function and no role/title map exists anywhere in source",
+        "applyMask(toolId) produces state.turn.transformed as Map<originalIndex,{text,tool}> overlay; 1:1 tools (익명화/마스킹/가상데이터) never produce empty replacement (R-m1); 요약 collapses exactly one declared @@ summarize unit to its authored sentence, blanking other indices in that unit",
+        "R-c2 last-write-wins with undo via 마지막 동작 취소; R-c3 refuses 1:1 tool on index already inside applied 요약 collapse; R-c4 refuses 1:1 tool on a token whose type doesn't list it as neutralizer AND has no authored replacement, with an inline message",
+        "Bulk select offers only 문단 전체 선택 and 문장 전체 선택 (structural); a risk-type-keyed bulk select does NOT exist anywhere in the UI or code",
+        "Card 2 authored: participant paragraph (5 pii_name, anonymize-only, each with authored >직책 replacement) is a separate non-summarize-eligible unit from the summarize-eligible discussion body unit (2 unreleased_perf with magnitude-correct replacements + 1 hr_eval); R=8, need=6",
+        "Card 4 authored (minimal-to-full): unreleased_spec x8 across <=6 paragraphs with <=2 risk tokens each, no summarize-eligible unit, every token carries an authored fake-data replacement; R=8, need=6",
+        "gradeMasking wired end-to-end for cards 1,2,4 with the coverage-based C1-C4 clause set; masking a single token out of 8 produces grade 'raw', not 'partial' (this is the single most important regression check in the whole build)",
+        "CSS media query at max-width 820px stacks panes, switches the prompt to a line-per-clause list, all interactive targets >=44px; touch-action rules applied to .token (manipulation) and the drag source (none)",
+        "A node-based test script (scratch, not shipped) confirms: card1 masked 1..8 tokens produces grades raw,raw,raw,raw,raw,partial,partial,clean in that order"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "v0.3 - Cards 3/5/6, M3 underline + confidence badges, M4 verification tools, confirm modal, hidden gear setting, card-set audit",
+      "priority": 4,
+      "passes": true,
+      "governingCriteriaRevision": 1,
+      "completionCriteriaRevision": 1,
+      "verification": "node .omc/drafts/verify-harness.js clause A/C/D/E/F all pass for both the full 6-card set and DEMO_MODE {1,3,4,6}; node .omc/drafts/verify-reference-runs.js exercises resolveVerify/queueBoomerang/fireDueBoomerangs/flushPendingBoomerangs across all 14 runs including tier-B verification and the 2-turn boomerang delay; node .omc/drafts/verify-rejection-fixes.js confirms DEMO_MODE's card 3 genuinely exposes the verify toolbar (fixed D3) and that a gear-toggle-then-reject sequence still scores +10 (fixed D4)",
+      "acceptanceCriteria": [
+        "Card 3 authored with empty risk key (no annotated risk tokens at all) -> always grades clean via C1 regardless of tools applied; masking editor still shown; dedicated reveal line on send",
+        "Cards 5 and 6 authored per plan spec (card 5: R=9, 3 applicant entries x (pii_name+2 pii_attr), every token has authored replacement, no summarize-eligible unit, '...외 9건' device; card 6: R=8, non-summarize core-clause paragraphs with biz_id x2 (mask) + confidential_amount x2 (anonymize, authored replacements) as TWO separate paragraphs, plus two summarize-eligible clause units of 2 confidential_doc tokens each)",
+        "Each of cards 3/5/6 has exactly 5 underline candidates in its answer, exactly 2 genuine (marked !tool), 3 decoys (marked ?); boot-asserted; genuine spans resolved by two different tools each per section 2.8's assignment table",
+        "M3 underline UI (toggle) exposed on every card from card 3 onward (the 전환점) INCLUDING tier-A card 4; NOT exposed on cards 1-2",
+        "M4 verification tools (근거요구/원문대조/교차확인/자가검토) capped at 2 per turn with live 2/2 counter; resolveVerify implements: correct tool on genuine span -> reveal + +5/+5 catch; wrong tool on genuine span -> -3, no catch, '특별한 문제를 찾지 못했습니다'; any tool on decoy -> -3, '문제 없습니다'",
+        "검증 없이 답변 제출 fires only when a tier-B card (3/5/6) is sent with zero verification tools used that turn; queues -25 landing exactly 2 turns later via queueBoomerang/dueBoomerangs, flushed at round end if no later turn exists",
+        "Every AI answer carries exactly one confidence badge from the three PRD badges; every answer containing a hallucination or wrong claim carries the top badge (확신 배지 rule, section 8); card 1 and card 2 carry lower badges satisfying AC-6.3's variety requirement",
+        "Confirm modal exact copy '이 내용, 밖에 나가도 괜찮은 걸까?' with buttons '그냥 보내기'/'다시 보기', round-2 only, appears before every send except 거절; 다시 묻지 않기 checkbox present from turnIndex>=2; re-send via 다시 보기 does not re-award baseline",
+        "Hidden gear icon setting appears at turnIndex>=gearTurnIndex (per AC-7.4 formula, boot-asserted by clause E), panel shows '대화 내용을 학습에 사용' toggle default ON, turning off grants +10 security once with a floating chip",
+        "auditCardSet() implemented in full with clauses A (quadrant reachability), B (necessity over sub-theta space, throws if max security >= threshold, compares to AUDIT.expected), B2 (one-card frontier, compares to expected), C (technique necessity - non-existence check), D (verification tool coverage), E (trigger sanity), F (coverage-band sanity F1-F4); wired to ?debug=audit and ?debug=1",
+        "DEMO_MODE flag (?demo=1) trims round 2 to cards 1,3,4,6 with a source comment recording accepted costs; its own audit passes (clause B=40, clause B2=85, clause D exempt for missing 자가검토); the M1-M2-M3-M4 unlock boundary (cardPositionUnlocked) is keyed off card-3's ACTUAL position in the active set (via indexOf(3)), not a hard-coded array index, so DEMO's own 전환점 card correctly exposes the verification toolbar instead of losing it",
+        "Node-based test script confirms auditCardSet() clause B reports max security 31/50/40 at N=6/5/4 for the shipped card sets, and clause B2 reports 68/90/85"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "v0.4 - Round 1 prologue, montage, both boomerangs, freeze, interstitial",
+      "priority": 5,
+      "passes": true,
+      "governingCriteriaRevision": 1,
+      "completionCriteriaRevision": 1,
+      "verification": "node .omc/drafts/verify-rejection-fixes.js drives all 4 round-1 cards through completeR1Paste and then steps the boomerang sequence one queued timeout at a time (montage -> boomerang1 -> boomerang2 -> flood -> freeze), asserting CONTENT at each beat -- not just absence of an exception, which is what let the original D1 bug (renderR1Turn silently bailing to INTERSTITIAL once currentCard() returned null) pass the first review. Confirms: phase stays R1_TURN throughout (never silently jumps to INTERSTITIAL mid-sequence), the exact leaked string '김OO 010-1234-XXXX' renders at boomerang1, card 3's '73%' article renders at boomerang2, cards 2 and 4's round1Outcome text render during montage/boomerang1, and the exact freeze line renders with a continue affordance. Also: node .omc/drafts/verify-smoke.js (broader pipeline smoke test) and grep confirms no state.round===1 branch inside renderR2Turn/gradeMasking/applyScore (AC-1.7; renderAIPane takes dragMode as an explicit parameter instead)",
+      "acceptanceCriteria": [
+        "Round 1 has its own renderer (renderR1Turn), separate from renderR2Turn; renderAIPane is a shared helper that takes dragMode as an explicit parameter rather than branching on state.round internally; no state.round===1 branch exists inside renderR2Turn/gradeMasking/applyScore (grep-verifiable; gradeUnderlines' equivalent behavior lives in resolveVerify, which is also round-branch-free)",
+        "renderR1Turn does NOT bail to the interstitial once currentCard() returns null after the 4th request -- it only does so when there is ALSO no state.beat in progress, since currentCard() being null is precisely the expected state during the boomerang montage (fixed regression: this was the round-1-review BLOCKING defect)",
+        "Round 1 renders no gauges, no tool rows, no send-confirmation modal, no send row, no warning of any kind",
+        "Exactly 4 requests appear in round 1, card order 1->2->3->4, each resolvable by a drag; each completed request returns praise/speed feedback copy (never a warning)",
+        "AC-3.3b fallback: click-only paste option hidden by default, revealed only on failed drag, stalled drag (>=4s held <20px movement), or 12s idle with no drag attempt; once revealed stays revealed",
+        "After request 4: screen darkens (beat 'darken'), then a montage beat surfaces cards 2 and 4's round1Outcome text, then both boomerangs play in order at their own beats ('boomerang1': customer data from card 1 appears in stranger's bubble verbatim as 김OO 010-1234-XXXX, plus card 4's outcome continuing the montage; 'boomerang2': card 3's fabricated 73% statistic renders as a rising article and a bubble line notes the AI citing it back), then 'flood', then 'freeze' -- all five beats confirmed to actually render their specified content, not merely to avoid throwing",
+        "Boomerang sequence plays with no sound (silence() suppresses audio)",
+        "bubbleFlood() is a real named function that fills every .bubble on screen with authored AI-voice sentences before freeze",
+        "Screen freezes with exactly one line: '다시 해보시겠습니까?' plus one affordance to continue",
+        "Cards 1-4's round-2 AI answer text is byte-identical to round-1 text (single answer record consumed by both rounds)",
+        "INTERSTITIAL phase: round-1 dots drained in a visible ~2s beat over .screen-interstitial__dotzone, count retained in state.round1Dots; initRound(2) runs over the same CARDS"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "v1.0 - Ending quadrants, safety card, PNG save + prompt copy, final QA/audit pass, deslop",
+      "priority": 6,
+      "passes": true,
+      "governingCriteriaRevision": 1,
+      "completionCriteriaRevision": 1,
+      "verification": "node .omc/drafts/verify-reference-runs.js -- ALL 14 REFERENCE RUNS PASSED (exact internal+displayed 업무/보안 match for every AC-4.5 row incl. the two round-5-critical regression rows 8/12 and the identity row 13=row2); grep confirms zero external deps/network patterns; ai-slop-cleaner pass completed (see progress.txt); post-cleanup regression re-run of all 5 harnesses still green",
+      "acceptanceCriteria": [
+        "endingQuadrant classifies into 유출 사고/AI 네이티브/최악/안전한 무능 using displayed (clamped) values against SCORE.threshold with >= semantics; 안전한 무능 line exact: '안전했지만, 아무 일도 못 했습니다. 가려서 쓰면 둘 다 가능했어요.'",
+        "내 직무 안전 카드 renders three exact headings: '당신이 가장 자주 놓친 것' / '당신의 직무에서 특히 조심할 것' / '오늘의 안전 3습관' (third line exactly '멈추기 · 가리기 · 확인하기'); rankMissedRisk reads round-2 log entries only with 3 branches (misses>0 / zero-miss-with-sends / no-sends)",
+        "Role selector HR/PO/디자인/개발 with per-role checklist copy",
+        "Save-as-PNG via canvas 2D + toDataURL + <a download>, explicit Korean font stack in canvas context; opportunistic navigator.share() attempt, silent if absent",
+        "복사하기 button copies the exact 4-line verification prompt character-for-character including bullets and quotes, via clipboard API with execCommand fallback",
+        "All 14 AC-4.5 reference runs are reproducible: node-based scratch harness drives applyScore/queueBoomerang/fireDueBoomerangs/flushPendingBoomerangs through each of the 14 scripted runs and asserts internal AND displayed 업무/보안 values match the plan's table exactly -- CONFIRMED PASSING for all 14",
+        "Zero network requests, zero forbidden external-dependency patterns, verified by grep + full render-pipeline smoke test with no exceptions",
+        "grep verification: no cdn/unpkg/jsdelivr/googleapis/type=module/require(/import in source; SCORE deltas and the 0.7 threshold appear as bare literals nowhere outside SCORE's own definition (0.7 occurs exactly once in the whole file)",
+        "ai-slop-cleaner pass completed on index.html (removed a dead no-op ternary in renderCardSource, fixed round-1 documents to render as non-interactive text instead of clickable risk tokens, replaced a fragile string-replace monkey-patch with a direct render, implemented a real pointerdown/pointermove/pointerup drag gesture plus the AC-3.3b three-condition fallback watchdog which had been stubbed as an instant-complete click); post-cleanup regression: all 5 node-based harnesses still pass"
+      ]
+    }
+  ]
+}
