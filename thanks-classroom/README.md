@@ -1,6 +1,6 @@
 # 우리 강의실 롤링페이퍼
 
-AI Native 캠프 강의실을 3D로 옮긴 롤링페이퍼예요. 각자 자기 자리를 골라 캐릭터를 꾸미고 ○○○ 강사님께 한마디를 남겨요.
+AI Native 캠프 강의실을 3D로 옮긴 롤링페이퍼예요. 각자 자기 자리를 골라 캐릭터를 꾸미고 김대영 강사님께 한마디를 남겨요.
 
 React + [react-three-fiber](https://github.com/pmndrs/react-three-fiber) + [drei](https://github.com/pmndrs/drei) · Vite
 
@@ -23,7 +23,7 @@ npm run build      # dist/ 에 배포용 파일
 | `src/ui/` | 화면 위 패널: 정보 카드 · 말풍선 · 쪽지 모아보기 · 내 쪽지 쓰기, 꽃가루 |
 | `apps-script/Code.gs` | 구글 Apps Script. 자리표를 주고, 쪽지를 구글 시트에 저장해요 |
 
-공개용 사본이라 자리표 이름은 가명(수강생01~28 · 운영진1~3 · ○○○ 강사님)이에요. 단체 사진은 빈 액자 그림으로, 쪽지 저장소 주소(`src/api.js`)는 빈칸으로 바꿨어요. 돌려 보려면 Apps Script를 새로 배포하고 `VITE_API_URL`에 주소를 넣어요.
+단체 사진(`public/class-photo.jpg`)은 공개 저장소라 빈 액자 그림으로 바꿨어요. 나머지는 원본 그대로예요.
 
 ## 저장소 (구글 시트 + Apps Script)
 

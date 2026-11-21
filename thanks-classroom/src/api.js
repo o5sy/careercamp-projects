@@ -2,7 +2,7 @@
 // 다른 저장소를 쓰려면 빌드할 때 VITE_API_URL 환경 변수로 바꿔요.
 export const API_URL =
   import.meta.env.VITE_API_URL ||
-  ""; // 공개 사본: 원래 쪽지 저장소 주소는 뺐어요. VITE_API_URL로 넣어요.
+  "https://script.google.com/macros/s/AKfycbxyiwoq8mG7z9sJgRxYEQY6ubQZwIuwER1k3rpZOkTHn0MFjAw5uzHUPoGzYSmGvzbTUg/exec?api=1";
 
 export async function fetchAll() {
   const r = await fetch(API_URL, { cache: "no-store" });

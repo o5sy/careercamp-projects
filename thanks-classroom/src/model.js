@@ -82,7 +82,7 @@ export function buildModel(config) {
     });
   }));
   // 운영진: 왼쪽 벽 앞에 서서 수강생 쪽(창가 방향)을 봐요
-  const operators = config.operators || ["운영진1", "운영진2", "운영진3"];
+  const operators = config.operators || ["김아름", "오동훈", "최자경"];
   operators.forEach((name, i) => {
     const auto = autoAvatar(name, { shirt: "#3E4C70" });
     people.push({
